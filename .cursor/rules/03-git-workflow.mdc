@@ -1,0 +1,36 @@
+﻿---
+description: "版本升级与发版规则"
+globs: ["**/*.git/**"]
+---
+
+# 版本升级与发版规则
+
+## 一、Commit 规范
+
+格式：`<type>(<scope>): <subject>`
+
+类型参考 `14-decision-trees.mdc` §六。
+
+Commit 前必须通过 typecheck + lint（见 `13-workflow.mdc` §一）。
+
+## 二、版本升级决策矩阵
+
+| 改动性质 | 版本级别 | 用户确认 |
+|---------|---------|---------|
+| Bug 修复 / 文案 / 配置 / 样式 | patch | ❌ |
+| 新功能 / 新页面 / 新 API | minor | ⚠️ 告知 |
+| 破坏性变更 / 架构大改 | major | ✅ 必须确认 |
+
+## 三、发版命令
+
+| 用户说 | 命令 |
+|--------|------|
+| "告一段落" / "发 patch" | `npm run release:patch` |
+| "发 minor" | 告知后默认同意 |
+| "发 major" | 必须二次确认 |
+
+## 四、Push 策略
+
+- commit 是本地操作，永远安全
+- push 尽力而为：失败不回滚 commit，告知用户
+- 绝对禁止：`git push --force` / `git reset --hard`（见 `15-pre-flight.mdc`）

@@ -1,0 +1,75 @@
+---
+description: "动画规范 — Framer Motion 三类动效模式"
+---
+
+# 动画规范 — Framer Motion 10.16
+
+## 三类动效模式
+
+### 1. 入场动效（Page Load Animation）
+
+```typescript
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+ hidden: { opacity: 0 },
+ visible: {
+   opacity: 1,
+   transition: { staggerChildren: 0.2, delayChildren: 0.1 }
+ }
+};
+
+const itemVariants = {
+ hidden: { opacity: 0, y: 20 },
+ visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } }
+};
+
+// 使用
+<motion.div variants={containerVariants} initial="hidden" animate="visible">
+  <motion.div variants={itemVariants}>项目1</motion.div>
+  <motion.div variants={itemVariants}>项目2</motion.div>
+</motion.div>
+```
+
+### 2. 滚动显隐（Scroll Reveal）
+
+```typescript
+<motion.div
+  initial={{ opacity: 0, y: 30 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, margin: "-100px" }}
+  transition={{ duration: 0.6 }}
+>
+  滚动显示
+</motion.div>
+```
+
+### 3. 交互反馈（Hover / Tap）
+
+```typescript
+<motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+  可点击元素
+</motion.div>
+```
+
+## 动画参数标准
+
+| 场景 | 时长 |
+|------|------|
+| 快速交互 | 0.15-0.3s |
+| 常规动画 | 0.3-0.6s |
+| 慢速动画 | 0.6-1.0s |
+
+## 性能优化
+
+- 使用 `transform` 和 `opacity`（GPU加速）
+- 使用 `staggerChildren` 控制同时动画数量
+- 尊重用户动画偏好：`useReducedMotion()`
+
+## 重要
+
+**Framer Motion 必须在客户端组件中使用：**
+```typescript
+'use client';
+import { motion } from 'framer-motion';
+```

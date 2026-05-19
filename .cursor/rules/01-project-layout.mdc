@@ -1,0 +1,36 @@
+﻿---
+description: "项目目录结构与归档规则 — 防止根目录膨胀"
+globs: ["*.md", "*.zip", "*.tar.gz", "*.7z", "bak/**", "old/**"]
+---
+
+# 项目目录结构与归档规则
+
+## 一、根目录白名单原则
+
+### 必须保留
+- package.json / package-lock.json
+- 
+ext.config.js / 	sconfig.json / 	ailwind.config.ts
+- .eslintrc.* / .prettierrc / .editorconfig
+- .env.local / .env.local.template / .gitignore / .nvmrc
+- README.md / CHANGELOG.md
+
+### 核心目录
+`
+src/  public/  docs/  scripts/  node_modules/  .next/  .git/
+.husky/  .github/  .cursor/
+`
+
+## 二、归档到 _archive/
+
+| 子目录 | 内容 |
+|--------|------|
+| _archive/docs-old/ | 过期文档、历史总结 |
+| _archive/deploy-packages/ | 部署包 |
+| _archive/scripts-old/ | 临时脚本 |
+
+## 三、AI 行为约束
+
+- 不得在根目录创建 *.md 文档（除 README.md / CHANGELOG.md）
+- 不得在根目录留下临时脚本
+- 不得把构建产物 / 部署包提交到 git

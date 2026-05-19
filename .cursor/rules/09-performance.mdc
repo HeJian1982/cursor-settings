@@ -1,0 +1,43 @@
+---
+description: "性能规则 — 加载性能、Bundle大小、数据库查询、缓存策略"
+---
+
+# 性能规则
+
+## 一、前端性能
+
+### Core Web Vitals 目标
+
+| 指标 | 目标 |
+|------|------|
+| LCP | < 2.5s |
+| FID | < 100ms |
+| CLS | < 0.1 |
+| TTFB | < 800ms |
+
+### Bundle 大小
+
+- 首屏 JS bundle < 200KB（gzip后）
+- 大型库（chart.js等）必须动态导入
+- 定期检查：`npx next build && npx @next/bundle-analyzer`
+
+### 图片优化
+
+- 使用 `next/image`
+- 必须设置 `width` / `height`
+- 首屏设 `priority`，非首屏设 `loading="lazy"`
+
+## 二、后端性能
+
+### 数据库
+
+- 必须加索引
+- 禁止 N+1 查询
+- 必须设超时：连接5s，查询10s
+- 大结果集必须分页
+
+## 三、约束
+
+- 新增大型依赖前告知用户 bundle 影响
+- 不得在循环中执行数据库查询
+- 不得在首屏加载未使用的大型库

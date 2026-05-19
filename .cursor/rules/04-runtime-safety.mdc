@@ -1,0 +1,53 @@
+---
+description: "运行时稳定性规则 — SSR守卫、ENV陷阱、API降级、Hydration安全"
+globs: ["src/**/*.ts", "src/**/*.tsx", "src/app/**/route.ts", ".env*"]
+---
+
+# 运行时稳定性规则
+
+## 一、SSR 安全
+
+### 浏览器对象守卫
+
+```typescript
+if (typeof window === 'undefined') return;
+```
+
+涉及：`window`、`document`、`localStorage`、`navigator`、`location`。
+
+### Client Component 边界
+
+- 副作用放 `useEffect`，不放函数体顶部
+- 纯展示组件不用 `'use client'`
+- 用到 `localStorage` 的库必须 `dynamic(ssr: false)` 包裹
+
+## 二、环境变量
+
+### `#` 注释陷阱
+
+```env
+DB_PASSWORD="abc#def"  # ✅ 正确，含特殊字符必须加引号
+```
+
+## 三、API 降级设计
+
+```typescript
+export async function GET() {
+  try {
+    const data = await loadFromDb();
+    return NextResponse.json({ success: true, data });
+  } catch (error) {
+    return NextResponse.json({
+      success: true,
+      data: getFallbackValue(),
+      degraded: true,
+      error: 'Service unavailable',
+    });
+  }
+}
+```
+
+## 四、Hydration 安全
+
+- `<head>` 里只放静态内容
+- 动态内容移到 `<body>` 或 `<Script strategy="afterInteractive">`

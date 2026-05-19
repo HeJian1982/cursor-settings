@@ -1,0 +1,54 @@
+---
+description: "安全规则 — 密钥管理、输入校验、XSS/CSRF/SQL注入防护"
+globs: ["src/**/*.ts", "src/**/*.tsx", "src/app/api/**", ".env*"]
+---
+
+# 安全规则
+
+## 一、密钥管理
+
+### 绝对禁止
+- 不得在代码中硬编码任何密钥、密码、token
+- 不得在日志中打印完整密钥
+- 不得在 commit 中包含 `.env*` 文件
+- 不得在前端代码中暴露服务端密钥
+
+### 环境变量分级
+- `NEXT_PUBLIC_*`：前端 + 后端（公开配置）
+- 无前缀：仅后端（密钥、DB密码、API Key）
+
+## 二、输入校验
+
+所有外部输入必须用 Zod 校验：
+
+```typescript
+const schema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1).max(100),
+});
+```
+
+## 三、XSS 防护
+
+- React 默认转义 JSX 输出
+- 需要富文本时使用 DOMPurify
+- 不得拼接 `<script>` / `javascript:` / `onclick`
+
+## 四、SQL 注入防护
+
+必须使用参数化查询 / ORM：
+
+```typescript
+// ✅ 安全
+const [rows] = await pool.execute('SELECT * FROM users WHERE id = ?', [userId]);
+```
+
+## 五、Rate Limiting
+
+高风险接口（登录、AI调用、写操作）必须 rate limit
+
+## 六、AI 行为约束
+
+- 发现安全隐患立即告知用户
+- 不得在代码中写入真实密钥
+- 不得禁用或绕过安全中间件

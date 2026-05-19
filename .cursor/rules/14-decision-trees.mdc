@@ -1,0 +1,76 @@
+---
+description: "AI 决策树 — 工具选择/编辑方式/自动跑命令/问vs做/commit时机"
+alwaysApply: true
+---
+
+# AI 决策树
+
+## 一、探索工具选择
+
+```
+知道确切文件路径    → read_file
+知道符号/字符串     → grep_search
+知道目录范围        → find_by_name
+都不知道（默认）    → code_search
+```
+
+## 二、编辑工具选择
+
+```
+文件不存在          → write_to_file
+1~2处独立修改       → edit
+3+处或同文件多处    → multi_edit
+重构组件props       → 先签名 → multi_edit改所有调用处 → typecheck
+```
+
+### 重构组件 props 的标准顺序
+
+1. 先在组件代码里写好新签名 + 实现
+2. `multi_edit` 一次性改所有调用处
+3. 跑 typecheck 一次性暴露所有问题
+4. 绝不制造"中间态文件"
+
+## 三、是否自动跑命令
+
+```
+读类操作（git status/typecheck/lint） → SafeToAutoRun=true
+写文件/删文件/网络/git push          → false
+migration/部署/push -f/reset --hard  → false
+启动长进程（dev server）             → false
+```
+
+## 四、问用户 vs 直接做
+
+```
+2+合理方案 且 不可逆         → ask_user_question
+UI风格/文案/数据模型设计       → ask_user_question
+小细节/实现方式/命名          → 直接做
+```
+
+## 五、何时 commit + push
+
+```
+当轮有变更 且 Verify通过 且 用户没说"先别"  → 立即commit+push
+仅阅读/分析/搜索（无文件变更）              → 跳过
+只改.env.local或_archive/                   → 跳过+告知用户
+```
+
+## 六、Commit message 类型选择
+
+| 改动范围 | type(scope) |
+|---------|-------------|
+| `.cursor/rules/**` | `chore(rules)` |
+| `docs/**` 纯文档 | `docs(<子目录>)` |
+| 页面/视图组件 | `feat(page)` / `fix(page)` |
+| 后端API | `feat(api)` / `fix(api)` |
+| 通用UI组件 | `feat(ui)` / `fix(ui)` |
+| 发版 | `chore(release)` |
+
+## 七、IDE feedback 信任度
+
+```
+typecheck通过 + IDE报错     → 信typecheck，IDE缓存噪声忽略
+IDE报错 + typecheck通过      → 信typecheck
+```
+
+遇到IDE缓存噪声：跑一次typecheck，过了就当没这事。

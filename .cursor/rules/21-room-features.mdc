@@ -1,0 +1,65 @@
+---
+description: "房间类型与游戏功能规范 — 6种房间类型、V1.5核心功能模块"
+---
+
+# 房间类型与游戏功能规范
+
+## 一、六种房间类型
+
+| 类型 | 标识 | 场景 | 地板 | 围栏 | 版本 |
+|------|------|------|------|------|------|
+| 客厅 | `living` | 室内 | 木地板 | 无 | 原生 |
+| 卧室 | `bedroom` | 室内 | 木地板 | 无 | 原生 |
+| 厨房 | `kitchen` | 室内 | 瓷砖 | 无 | 原生 |
+| 花园 | `garden` | 室外 | 草地 | 木质围栏 | V1.6 |
+| 种植园 | `plantation` | 室外 | 农田网格 | 栅栏 | V1.6 |
+| 医院 | `hospital` | 室内 | 医疗地板 | 无 | V1.6 |
+
+## 二、房间类型开发
+
+### 新增步骤
+
+1. `src/lib/furniture-types.ts` — 添加房间类型定义
+2. `src/lib/room-config.ts` — 添加房间尺寸和结构
+3. `src/lib/color-themes.ts` — 添加配色方案
+4. 创建对应 3D 物品组件
+5. `src/lib/template-presets.ts` — 添加预设模板
+6. 更新游戏组件的房间类型选择器
+
+### 命名规范
+
+| 内容 | 格式 | 示例 |
+|------|------|------|
+| 房间类型文件 | `room-type.ts` | `garden.ts` |
+| 3D物品组件 | `Item3D` 前缀 | `GardenItem3D` |
+| 预设模板 | `{type}-template-*.json` | `garden-template-1.json` |
+
+### 每种房间必须包含
+
+- 专属3D物品 3-4 个
+- 特色装饰元素
+- 预设布局模板 2-3 个
+- 专属配色方案
+
+## 三、V1.5 核心功能模块
+
+### 工具库
+
+| 文件 | 功能 |
+|------|------|
+| `src/lib/screenshot-utils.ts` | 2D/3D场景截图、JSON导出/导入 |
+| `src/lib/history-manager.ts` | 撤销/重做，命令模式实现 |
+| `src/lib/template-presets.ts` | 19个预设布局（6种房间类型） |
+| `src/lib/auto-save.ts` | localStorage 自动保存/恢复 |
+
+### UI组件
+
+| 文件 | 功能 |
+|------|------|
+| `src/components/export-menu.tsx` | 截图+导出JSON+导入JSON三合一菜单 |
+| `src/components/template-selector.tsx` | 展示和应用预设模板 |
+
+### 集成位置
+
+- `src/components/games/furniture-game.tsx` — 2D游戏
+- `src/components/games/furniture-game-3d.tsx` — 3D游戏

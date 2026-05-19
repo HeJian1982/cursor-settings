@@ -1,0 +1,81 @@
+---
+description: "环境对齐与服务器档案 — 本地/生产配置一致性、部署前验证"
+---
+
+# 环境对齐与服务器档案
+
+## 一、部署前验证（推送前必做）
+
+```shell
+node -v        # 必须 >= 20
+npm ci
+npm run typecheck
+npm run lint
+npm run build
+```
+
+## 二、环境变量规范
+
+| 变量 | 本地 | 生产 | 说明 |
+|------|------|------|------|
+| `NODE_ENV` | development | production | — |
+| `DATABASE_URL` | localhost | 远程 | — |
+| `NEXT_PUBLIC_*` | ✅ | ✅ | 需同步 |
+
+### 文件约定
+
+- `.env.local` — 不得 commit，仅本地使用
+- `.env.local.template` — 记录所有变量名（不含真实值），可同步更新
+- 生产环境变量在服务器宝塔面板管理
+
+## 三、服务器档案
+
+### 身份与接入
+
+| 项 | 值 |
+|----|-----|
+| 云厂商 | 阿里云 ECS |
+| 操作系统 | Ubuntu 22.04 LTS |
+| 站点根目录 | `/www/wwwroot/hj1982.cn` |
+| 日志目录 | `/www/wwwroot/hj1982.cn/logs` |
+| 登录方式 | SSH密钥 |
+| 管理面板 | 宝塔面板 |
+
+### 运行时基线
+
+| 组件 | 版本 |
+|------|------|
+| Node.js | >= 20 |
+| npm | 10.x |
+| PM2 | v6+ |
+| MySQL | 8.0+ |
+| Redis | 7.x |
+
+### 部署信息
+
+- PM2 进程名：`e-hj-web`
+- 构建命令：`npm run build`
+- 启动命令：`pm2 start ecosystem.config.js`
+- 域名：hj1982.cn
+- SSL：Let's Encrypt 自动
+
+### 网络端口
+
+| 端口 | 用途 |
+|------|------|
+| 22 | SSH |
+| 80 | HTTP |
+| 443 | HTTPS |
+| 3000 | Node应用 |
+
+## 四、回滚流程
+
+```shell
+# 记录当前版本 tag（部署前）
+# 回滚命令
+git checkout <tag> && npm ci && npm run build && pm2 restart
+```
+
+## 五、涉及部署/PM2/数据库相关问题时
+
+读取本文件作为事实来源。

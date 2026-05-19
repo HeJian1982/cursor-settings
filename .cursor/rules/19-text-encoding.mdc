@@ -1,0 +1,48 @@
+---
+description: "文本编码与换行规范 — Windows/PowerShell编码陷阱、mojibake识别与修复"
+---
+
+# 文本编码与换行规范
+
+## 一、项目默认（铁律）
+
+1. 所有源代码、配置、文档文件统一使用 **UTF-8（无 BOM）+ LF**
+2. 项目根目录必须有 `.editorconfig` 显式声明
+3. `.gitattributes` 锁定换行符行为
+
+### `.editorconfig` 最小模板
+
+```ini
+root = true
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+
+[*.bat]
+end_of_line = crlf
+```
+
+## 二、PowerShell 编码陷阱
+
+Windows 默认 PowerShell 5.1 的编码是系统 ANSI（中文 Windows = GBK），写入中文会乱码。
+
+### 写文件
+
+```powershell
+# ❌ 错误
+"中文" > file.txt
+"中文" | Out-File file.txt
+
+# ✅ 正确：用 .NET API（无 BOM，跨版本一致）
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText('file.txt', '内容', $utf8NoBom)
+```
+
+## 三、AI 写脚本时
+
+1. PowerShell 脚本一律用纯 ASCII 写
+2. 禁止用 `>` / `Out-File` / `Set-Content` 默认编码写中文文件
+3. PowerShell 多语句用 `;` 不用 `&&`（PS 5 不支持）

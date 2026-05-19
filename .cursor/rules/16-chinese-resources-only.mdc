@@ -1,0 +1,59 @@
+---
+description: "中国资源优先规则 — 面向中国大陆用户，禁海外社交/CDN，统一用境内服务"
+---
+
+# 中国资源优先规则
+
+## 一、适用前提
+
+- 站点面向中国大陆用户
+- 备案在中国大陆
+- CDN与服务器在中国大陆境内
+
+## 二、社交分享渠道
+
+### 允许的中国大陆平台
+
+| 平台 | 备注 |
+|------|------|
+| 微信/朋友圈 | Web端复制链接 |
+| 微博 | 直接打开分享窗口 |
+| QQ/QQ空间 | 直接打开分享窗口 |
+| 知乎 | Web分享 |
+| 复制链接 | `navigator.clipboard.writeText()` |
+
+### 禁止的海外平台
+
+- Twitter/X, Facebook, LinkedIn, Instagram
+- YouTube, TikTok, WhatsApp, Telegram
+
+## 三、消息来源
+
+### 允许
+- 国内官媒 RSS/API
+- 国内AI厂商：DeepSeek、月之暗面Kimi、智谱GLM、阿里通义、百度文心、硅基流动
+
+### 禁止
+- 任何需要"翻墙"才能访问的新闻源
+- 境外AI厂商直接对接（OpenAI/Anthropic/Google等）
+
+## 四、CDN / 静态资源
+
+### 优先使用
+- 自托管（`/public/**`）
+- 国内CDN：阿里云CDN、腾讯云CDN
+- 国内开源镜像：cdn.bootcdn.net、npmmirror.com
+
+### 禁止
+- Google Fonts
+- Google Analytics
+- Twitter widgets / Facebook SDK
+
+## 五、AI 校验清单
+
+| 关键词 | 必查项 |
+|--------|--------|
+| 分享/share | §二平台列表 |
+| 资讯/新闻/RSS | §三来源列表 |
+| CDN/字体 | §四域名列表 |
+| AI调用/LLM | 必须走国内AI |

@@ -1,0 +1,45 @@
+﻿---
+description: "代码风格规则 — TypeScript + React 项目规范"
+globs: ["src/**/*.ts", "src/**/*.tsx", "scripts/**/*.ts"]
+---
+
+# 代码风格规则
+
+## 一、TypeScript 规则
+
+- 严格模式：始终 strict: true
+- 禁止 any：用具体类型或 unknown
+- 不得 `// @ts-ignore`：用 `// @ts-expect-error` 并附说明
+- 导入排序：1. React/框架/第三方 2. @/ 别名 3. ./ 相对
+
+## 二、React 组件规则
+
+- 函数组件优先，不用 class component
+- Server vs Client Component（Next.js App Router）
+  - 默认 Server Component
+  - 需要交互/hooks 才加 `'use client'`
+  - 客户端组件尽量下沉到叶子节点
+- Props 命名：接口名以 Props 结尾
+- 事件处理：命名以 handle 开头
+
+## 三、版权声明
+
+每个源文件必须包含版权头，模板见 `10-documentation.mdc` §二。
+
+## 四、日志与错误处理
+
+- 不得 console.log 留在生产代码
+- 所有 API route 必须有 try/catch + 统一错误结构
+- 日志脱敏：密钥、token、手机号 → 部分打码
+
+## 五、样式规则
+
+- Tailwind 优先，避免内联 style
+- 暗色模式：所有组件必须兼容 dark: 前缀
+- 响应式：移动端优先
+
+## 六、测试规则
+
+- Vitest 单元测试 → `*.test.ts(x)`
+- Playwright E2E → `e2e/`
+- 不得 `.skip()` 测试

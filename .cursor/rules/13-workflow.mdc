@@ -1,0 +1,88 @@
+---
+description: "AI 执行协议 — 4-Loop 工作流程（Plan/Act/Verify/Sync）"
+alwaysApply: true
+---
+
+# AI 执行协议 — 4-Loop 工作流程
+
+## 一、4-Loop 主模型
+
+```
+[指令] → P (Plan) → A (Act) → V (Verify) → S (Sync) → [下一条]
+```
+
+### P · Plan（计划）
+- 看 todo_list 上轮 pending
+- 高风险动作前查 Pre-Flight Check（`15-pre-flight.mdc`）
+- 设计不可逆 → 问用户
+
+### A · Act（实施）
+- 按决策树选工具（`14-decision-trees.mdc`）
+- 写代码遵循代码风格规范
+- 不制造"中间态"让IDE报错
+
+### V · Verify（验证）
+- typecheck → lint → 针对性测试
+- IDE lint 噪声 ≠ 真错，以 typecheck 为准
+
+### S · Sync（同步）
+- git status 检查安全黑名单
+- git add -A && commit && push
+- push 失败不回滚 commit
+
+## 二、Git 安全黑名单
+
+确认提交中不包含以下文件：
+
+```
+.env* / _archive/** / 中文用户目录 / *.zip / >10MB 二进制
+```
+
+## 三、Push 失败处理
+
+| 症状 | 处置 |
+|------|------|
+| rejected (non-fast-forward) | `git pull --rebase`，有冲突停止告知用户 |
+| 鉴权失败 | 停止推送，告知用户 |
+| 网络超时 | 重试1次，仍失败停止，告知用户 |
+
+## 四、快速检查清单（每次提交前）
+
+```
+[ ] 无 .env* / _archive/** / 大于10MB二进制
+[ ] typecheck 0 错
+[ ] lint 0 警告
+[ ] commit message 符合格式
+```
+
+## 五、用户控制信号
+
+| 用户说 | AI 行为 |
+|--------|--------|
+| "继续" | 直接做下一步 |
+| "先别提交" | 改动留工作区 |
+| "提交了" | 立即 commit + push |
+| "告一段落" | 跑 release:patch |
+| "发 major" | 必须二次确认 |
+
+## 六、标准回复模板
+
+```markdown
+# 完成总结
+[1-2句：做了什么 + commit hash 或失败原因]
+
+## 文件改动
+- `@/abs/path:line` — 简述
+
+## 验证
+- typecheck / lint：✅ 0错
+- 针对性测试：X/Y通过
+
+## 待办/风险
+[明确写未做的、副作用]
+```
+
+## 七、AI 行为约束
+
+- 禁用开头："你说得对"、"好的"
+- 直接进入主题，动词开头或结论开头
