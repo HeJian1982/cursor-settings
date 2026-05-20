@@ -77,7 +77,7 @@ foreach ($r in $coreRules) {
 
 # ── T3: 脚本文件存在性 ───────────────────────────────────
 Write-Host "T3: 脚本文件" -ForegroundColor Yellow
-$scriptFiles = @('init-project.ps1', 'sync-global-rule.ps1', 'sync-local-configs.ps1')
+$scriptFiles = @('init-project.ps1', 'sync-global-rule.ps1', 'sync-local-configs.ps1', 'append-daily-log.ps1')
 foreach ($s in $scriptFiles) {
     $exists = Test-Path "$RepoRoot\scripts\$s"
     Test-Case "scripts/$s exists" { $exists }
