@@ -1,0 +1,127 @@
+name: Cursor Templates CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── 规则文件完整性 ──────────────────────────────────────
+  rules-integrity:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run template test suite
+        shell: pwsh
+        run: |
+          & ./tests/run-tests.ps1
+
+  # ── PowerShell 脚本编码检查 ────────────────────────────
+  ps1-encoding:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check PowerShell scripts UTF-8 BOM
+        shell: pwsh
+        run: |
+          $scripts = @(
+            'scripts/init-project.ps1',
+            'scripts/sync-global-rule.ps1',
+            'scripts/sync-local-configs.ps1',
+            'tests/run-tests.ps1'
+          )
+          $failed = 0
+          foreach ($s in $scripts) {
+            $bytes = [System.IO.File]::ReadAllBytes($s)
+            if (-not ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)) {
+              Write-Host "FAIL: $s missing UTF-8 BOM"
+              $failed++
+            } else {
+              Write-Host "OK: $s"
+            }
+          }
+          if ($failed -gt 0) { exit 1 }
+          Write-Host "All scripts have UTF-8 BOM"
+
+  # ── 规则内容一致性检查 ─────────────────────────────────
+  rules-consistency:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check rule file count
+        shell: pwsh
+        run: |
+          $count = (Get-ChildItem .cursor/rules/*.mdc -ErrorAction SilentlyContinue | Measure-Object).Count
+          Write-Host "Rule files: $count (expected 21)"
+          if ($count -ne 21) {
+            Write-Host "FAIL: expected 21 rule files, found $count"
+            exit 1
+          }
+
+      - name: Check core rules exist
+        shell: pwsh
+        run: |
+          $required = @('00-core.mdc', '13-workflow.mdc', '14-decision-trees.mdc', '15-pre-flight.mdc')
+          foreach ($r in $required) {
+            if (-not (Test-Path ".cursor/rules/$r")) {
+              Write-Host "FAIL: missing $r"
+              exit 1
+            }
+            Write-Host "OK: $r"
+          }
+
+      - name: Check no deleted rules referenced
+        shell: pwsh
+        run: |
+          # Check that deleted rules (05, 17, 18, 20, 21) are not referenced in INSTALL.md
+          $install = Get-Content INSTALL.md -Raw
+          $deleted = @('05-ai-collaboration.mdc', '17-server-environment.mdc', '18-environment-alignment.mdc', '20-v1.5-features.mdc', '21-new-room-types.mdc')
+          foreach ($d in $deleted) {
+            if ($install -match [regex]::Escape($d)) {
+              Write-Host "FAIL: INSTALL.md still references deleted rule: $d"
+              exit 1
+            }
+          }
+          Write-Host "OK: INSTALL.md has no references to deleted rules"
+
+      - name: Check no dangling cross-references in 00-core
+        shell: pwsh
+        run: |
+          $core = Get-Content .cursor/rules/00-core.mdc -Raw
+          # 00-core should reference actual existing files
+          if ($core -match '13-workflow\.mdc') { Write-Host "OK: 00-core references 13-workflow" }
+          if ($core -match '14-decision-trees\.mdc') { Write-Host "OK: 00-core references 14-decision-trees" }
+
+  # ── Git 安全检查 ────────────────────────────────────────
+  git-safety:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check no secrets in commits
+        shell: pwsh
+        run: |
+          $hasSecret = git log --all -p --full-history -S "API_KEY" -- . | Select-String -Pattern "API_KEY\s*=\s*['\"]"
+          if ($hasSecret) {
+            Write-Host "FAIL: Possible API key in git history"
+            exit 1
+          }
+          Write-Host "OK: No obvious secrets found"
+
+      - name: Check .gitignore coverage
+        shell: pwsh
+        run: |
+          $gi = Get-Content .gitignore -Raw
+          $required = @('.env', 'node_modules', '_archive')
+          foreach ($r in $required) {
+            if (-not ($gi -match [regex]::Escape($r))) {
+              Write-Host "FAIL: .gitignore missing $r"
+              exit 1
+            }
+            Write-Host "OK: .gitignore covers $r"

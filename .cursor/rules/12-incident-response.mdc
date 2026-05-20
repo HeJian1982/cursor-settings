@@ -28,7 +28,7 @@ description: "事故响应与回滚 — 生产故障处置、回滚、复盘"
 git revert <release-commit-sha>
 git push origin main
 
-# 方案B：部署上一个已知良好版本（见 18-environment.mdc §四）
+# 方案B：部署上一个已知良好版本（见 `18-environment.mdc` §三）
 ```
 
 ## 四、预防措施
