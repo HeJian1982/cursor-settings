@@ -1,4 +1,4 @@
-# Cursor AI 协作全局规则 — 何健个人网站
+﻿# Cursor AI 协作全局规则 — 何健个人网站
 
 > 基于 WindSurf v2.7 配置体系迁移，适配 Cursor IDE
 > 适用于所有 Cursor 会话
@@ -52,7 +52,7 @@
 
 ### 项目身份
 - 项目名：何健个人网站
-- 当前版本：v2.20
+- 当前版本：v1.0.0
 - 工作区：e:\HJ\Web
 - 框架：Next.js 14 + React 18 + TypeScript 5 + Tailwind 3
 - 运行时：Node >= 20

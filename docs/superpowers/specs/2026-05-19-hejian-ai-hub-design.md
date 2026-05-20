@@ -1,3 +1,6 @@
+<!-- 版权所有 © 何健 保留所有权利 -->
+<!-- 文件路径：docs/superpowers/specs/2026-05-19-hejian-ai-hub-design.md -->
+
 # HeJian AI Hub — 设计文档
 
 > 版本：v1.0.0
