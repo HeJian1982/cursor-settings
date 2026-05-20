@@ -44,3 +44,50 @@
 | 21-room-features.mdc | 房间类型规范（6种房间类型、V1.5功能模块） |
 | 22-animations.mdc | 动画规范（Framer Motion三类动效模式） |
 | 23-daily-summary.mdc | 每日会话摘要Skill（transcript解析、自动追加） |
+
+### 自动化脚本
+
+|| 脚本 | 说明 |
+||------|------|
+| `scripts/init-project.ps1` | 交互式初始化新项目的 Cursor AI 协作规则 |
+| `scripts/sync-global-rule.ps1` | 双向同步 `global-rule-paste.md` <-> Cursor `cursor.rules` |
+| `scripts/sync-local-configs.ps1` | 双向同步本机 Cursor 设置 <-> `local-machine-configs/` |
+| `scripts/append-daily-log.ps1` | 追加当日会话记录到 `cursor-transcripts/YYYY-MM-DD.md` |
+| `scripts/generate-baselines.ps1` | 生成 SHA256 基线：`baselines.json`（6脚本 + 96 Skills + Cursor settings） |
+| `scripts/daily-optimize.ps1` | 每日优化编排器：测试+基线+同步+提交 |
+| `scripts/setup-daily-task.ps1` | 注册/查看/删除 Windows 定时任务 |
+
+### 每日定时优化
+
+```powershell
+# 注册每日 07:30 自动优化（推荐 SYSTEM 权限）
+.\scripts\setup-daily-task.ps1 -Action Register
+
+# 查看当前定时任务状态
+.\scripts\setup-daily-task.ps1 -Action Show
+
+# 移除定时任务
+.\scripts\setup-daily-task.ps1 -Action Unregister
+
+# 手动运行（测试用）
+.\scripts\daily-optimize.ps1
+.\scripts\daily-optimize.ps1 -DryRun   # 预览，不写文件不提交
+.\scripts\daily-optimize.ps1 -SkipCommit  # 跳过 git commit
+```
+
+**定时任务内容**：`daily-optimize.ps1` 每次运行：
+1. Pull 最新本机配置到仓库快照
+2. 运行完整测试套件（84 项安全检查）
+3. 重新生成 SHA256 基线
+4. 再次运行测试套件验证基线
+5. Git commit（如有变更）→ 自动 push（如配置了 remote）
+
+**运行日志**：`logs/daily-optimize-YYYY-MM-DD.log`
+
+### 安全基线体系
+
+- **T9**: PowerShell 脚本 SHA256 基线验证
+- **T13**: Skills `SKILL.md` SHA256 基线验证（96 个 Skills）
+- **T14**: 可疑脚本注入扫描（检测 `scripts/` 外的新增 `.ps1`/`.sh`/`.bat`）
+- **T15**: Transcript 文件完整性快照（大小合理性 100B-50MB）
+- **P5**: 每日日志追加时记录 transcript SHA256 签名
