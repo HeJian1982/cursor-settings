@@ -29,6 +29,6 @@
 || 19-text-encoding.mdc | .env*/PS脚本/乱码 | 文本编码规范 |
 || 21-room-features.mdc | 家居设计游戏 | 房间类型规范 + V1.5功能模块 |
 || 22-animations.mdc | 动画相关 | Framer Motion规范 |
-|| 23-daily-summary.mdc | 每条指令完成后 | 读取transcript追加每日日志、生成昨日摘要 |
+|| 23-daily-summary.mdc | 每条指令完成后 | 自动自省引擎 — transcript解析/每日日志/教训沉淀 |
 
 > 注：编号 05/17/20 已被历史迭代删除（05已删除、17和20已合并）。当前共 21 个规则文件。

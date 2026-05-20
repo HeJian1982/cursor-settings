@@ -1,32 +1,72 @@
 ---
 name: daily-summary
 slug: daily-summary
-version: 1.0.0
-description: "读取当日 Cursor 对话记录（transcript），整理成每日摘要日志。每条用户指令完成后自动追加到当日日志；每天开始时汇总昨日摘要。"
+version: 1.1.0
+description: "自动自省引擎 — 每次 Commit + Push 后读取 transcript，追加每日日志并提取可执行洞察。是自我复盘、记忆沉淀和经验进化的核心机制。"
 ---
 
-# Cursor AI 每日会话摘要 Skill
+# Cursor AI 自省引擎 v1.1
 
-本 Skill 负责将每次对话的记录整理归档，形成可追溯的每日日志。
+本 Skill 是 AI 自我改进系统的核心引擎。**每次 Commit + Push 成功后自动触发**，无需用户提示。
+
+## 核心机制
+
+```
+每次 Commit + Push 成功
+       │
+       ▼
+  auto-reflect.ps1  ← 自动执行
+       │
+       ├──→ 每日日志 (cursor-transcripts/YYYY-MM-DD.md)
+       │         └─ 追加本轮会话记录
+       │
+       ├──→ 教训路由 (memory/lessons/)
+       │         └─ 从错误中提炼可执行洞察
+       │
+       └──→ 决策路由 (memory/decisions/)
+                 └─ 架构/方案决策归档
+```
+
+## 触发时机
+
+**`13-workflow.mdc` §四检查清单** 中，第 5 项改为：
+
+```
+[ ] auto-reflect.ps1 已执行（每日日志 + 洞察路由）
+```
+
+触发时机：Commit + Push 成功**之后**，作为 Sync 阶段的最后一步。
 
 ## 核心文件
 
-- **原始记录**：`C:\Users\HJ2\.cursor\projects\e-HJ-cursor\agent-transcripts\<uuid>\<uuid>.jsonl`
-- **每日日志**：`e:\HJ\cursor\cursor-transcripts\YYYY-MM-DD.md`
+| 文件 | 用途 |
+|------|------|
+| `e:\HJ\cursor\scripts\auto-reflect.ps1` | 自省引擎脚本（自动执行） |
+| `e:\HJ\cursor\cursor-transcripts\YYYY-MM-DD.md` | 每日会话日志 |
+| `e:\HJ\cursor\memory\lessons\INDEX.md` | 教训沉淀（从错误中学） |
+| `e:\HJ\cursor\memory\decisions\INDEX.md` | 决策记录（架构/方案决策） |
+| `e:\HJ\cursor\memory\preferences\INDEX.md` | 用户偏好 |
+| `e:\HJ\cursor\memory\projects\INDEX.md` | 项目记录 |
 
-## 流程一：每条对话完成后 — 追加日志（自动执行）
+原始记录：`C:\Users\HJ2\.cursor\projects\e-HJ-cursor\agent-transcripts\<uuid>\<uuid>.jsonl`
 
-每次用户指令完成（Commit + Push 之后），立即将本轮对话的关键信息追加到当日日志文件。
+## 流程一：auto-reflect.ps1 自动执行（核心）
 
-### 操作步骤
+每次 Commit + Push 后，AI 自动运行：
 
-1. 读取当日日志文件（路径 `e:\HJ\cursor\cursor-transcripts\YYYY-MM-DD.md`，不存在则创建）
-2. 从 `C:\Users\HJ2\.cursor\projects\e-HJ-cursor\agent-transcripts\` 下找到最新的 transcript 文件
-3. 解析 JSONL，提取：
-   - 用户请求（user message）
-   - AI 执行的关键动作（Write/Delete/StrReplace 等文件操作）
-   - 最终结果/结论
-4. 按以下格式追加到日志：
+```powershell
+& "e:\HJ\cursor\scripts\auto-reflect.ps1"
+```
+
+脚本执行以下操作：
+
+1. **找到最新 transcript**：扫描 `agent-transcripts/` 目录，按修改时间取最新的 JSONL
+2. **解析 JSONL**：提取 user messages、file changes（Write/Delete/StrReplace）
+3. **追加每日日志**：将本轮会话追加到 `cursor-transcripts/YYYY-MM-DD.md`
+4. **输出洞察摘要**：打印本轮关键指标（消息数、文件变更数）
+5. **提示 AI 判断**：复杂洞察（教训/决策）需要 AI 人工判断后写入 memory/
+
+### 日志追加格式
 
 ```markdown
 ### HH:MM 左右
@@ -36,26 +76,71 @@ description: "读取当日 Cursor 对话记录（transcript），整理成每日
 |------|------|
 | 主题 | <用户请求的简短描述> |
 | 触发条件 | 用户主动发起 / 任务链触发 |
-| 动作 | <做了什么，1-3句话> |
-| 结果 | <完成状态，1-2句话> |
+| 动作 | <做了什么，X 个文件操作（Write: X / Edit: X / Delete: X）> |
+| 结果 | ✅完成 / ⚠️部分 / ❌失败 |
 
 #### 改动文件
 - `<file>` — <改动简述>
 
+#### 自省洞察
+- <本轮发现的模式或问题>
+
 #### 验证
-- typecheck: ✅ / ❌
-- lint: ✅ / ❌
-- git commit: `<hash>` / 未提交
+- typecheck: ✅ / ❌（待确认）
+- git commit: `<hash>`
 ```
 
-### 日志追加规则
+## 流程二：洞察人工提炼（补充）
 
-- **同一次会话**中的多条用户指令，作为同一个 `### HH:MM` 条目下的多个子段落
-- **不同会话**（Cursor 重启后），作为新的 `### HH:MM` 条目
-- 日志文件末尾的 `---` 分隔线在追加后保持
-- 每条追加内容不超过 200 字，聚焦"做了什么 + 结果"，不粘贴完整输出
+auto-reflect.ps1 只能做结构化提取。**复杂的洞察提炼需要 AI 人工判断**，在脚本执行后继续：
 
-## 流程二：每天开始 — 生成昨日摘要（按需执行）
+### 何时提炼洞察
+
+当出现以下情况时，必须提炼洞察并写入 memory/：
+
+| 信号 | 写入位置 | 格式 |
+|------|---------|------|
+| 任务重复触发（"重新..."、"再次..."） | `memory/lessons/` | 教训格式 |
+| 发现工作流问题 | `memory/lessons/` | 教训格式 |
+| 完成架构/方案决策 | `memory/decisions/` | 决策格式 |
+| 用户偏好变化 | `memory/preferences/` | 偏好格式 |
+| 项目重大进展 | `memory/projects/` | 更新项目条目 |
+
+### 教训格式
+
+```markdown
+## YYYY-MM-DD · <教训标题>
+
+### 来源
+会话 ID: `<uuid>`
+
+### 问题
+<客观描述发生了什么>
+
+### 教训
+<可执行的改进，下次遇到同场景直接应用>
+
+### 验证
+<本教训是否被后续工作验证>
+```
+
+### 决策格式
+
+```markdown
+### YYYY-MM-DD · <决策标题>
+
+**问题**：<要解决的问题>
+
+**选项**：
+- A. <方案A>
+- B. <方案B>
+
+**决策**：B
+
+**理由**：<为什么选B>
+```
+
+## 流程三：每日开始 — 生成昨日摘要（按需执行）
 
 当用户说"整理昨天的日志"或"生成昨日摘要"时执行。
 
@@ -68,7 +153,7 @@ description: "读取当日 Cursor 对话记录（transcript），整理成每日
    - 昨日共处理了哪些任务
    - 每项任务的结果
    - 未完成/待跟进的事项
-   - 从中发现的问题或改进点（可选）
+   - 从中发现的问题或改进点
 
 ### 输出格式
 
@@ -92,12 +177,23 @@ description: "读取当日 Cursor 对话记录（transcript），整理成每日
 - [ ] <未完成事项2>
 
 ## 改进点
-- <从昨日工作中提炼的改进建议，可选>
+- <从昨日工作中提炼的改进建议>
 ```
+
+## 自省质量标准
+
+| 标准 | 说明 |
+|------|------|
+| **具体** | 不是"更小心"，而是"编辑前先检查文件是否存在" |
+| **可执行** | 未来可直接应用，不是模糊建议 |
+| **非显而易见** | 跳过任何合格 Agent 都知道的事 |
+| **新颖** | 不重复已有教训 |
 
 ## 注意事项
 
-- JSONL transcript 文件可能很大（100k+ tokens），始终用 `tail` 或限制行数读取
-- 日志文件不存在时自动创建，带标准头部
-- 日志路径硬编码，不得使用变量占位符
+- JSONL transcript 文件可能很大，始终用 `tail` 或限制行数读取
+- 每日日志路径硬编码，不得使用变量占位符
 - 追加时保留原有内容，只在 `---` 前插入新内容
+- lessons/ 每条不超过 500 字
+- decisions/ 每条不超过 300 字
+- 不得将完整 transcript 粘贴到任何记忆文件

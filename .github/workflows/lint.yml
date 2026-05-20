@@ -31,6 +31,7 @@ jobs:
             'scripts/init-project.ps1',
             'scripts/sync-global-rule.ps1',
             'scripts/sync-local-configs.ps1',
+            'scripts/auto-reflect.ps1',
             'tests/run-tests.ps1'
           )
           $failed = 0

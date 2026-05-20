@@ -29,6 +29,7 @@ alwaysApply: true
 - git status 检查安全黑名单
 - git add -A && commit && push
 - push 失败不回滚 commit
+- **commit + push 成功后自动运行自省引擎**：`& "e:\HJ\cursor\scripts\auto-reflect.ps1"`
 
 ## 二、Git 安全黑名单
 
@@ -53,9 +54,20 @@ alwaysApply: true
 [ ] typecheck 0 错
 [ ] lint 0 警告
 [ ] commit message 符合格式
+[ ] auto-reflect.ps1 已执行（每日日志 + 洞察路由）
 ```
 
-## 五、用户控制信号
+## 五、Git 远端检查
+
+Commit 前先确认远端已配置：
+
+```powershell
+git remote -v
+```
+
+如果输出为空，先添加远端或告知用户。
+
+## 六、用户控制信号
 
 | 用户说 | AI 行为 |
 |--------|--------|
@@ -65,7 +77,7 @@ alwaysApply: true
 | "告一段落" | 跑 release:patch |
 | "发 major" | 必须二次确认 |
 
-## 六、标准回复模板
+## 七、标准回复模板
 
 ```markdown
 # 完成总结
@@ -82,7 +94,7 @@ alwaysApply: true
 [明确写未做的、副作用]
 ```
 
-## 七、AI 行为约束
+## 八、AI 行为约束
 
 - 禁用开头："你说得对"、"好的"
 - 直接进入主题，动词开头或结论开头
