@@ -195,6 +195,12 @@ if ($commitHash -ne "") {
     $commitStatusStr = "$gitStatus ($commitHash)"
 }
 
+# Transcript integrity signature
+$transcriptHash = ""
+if (Test-Path $jsonlPath) {
+    $transcriptHash = (Get-FileHash $jsonlPath -Algorithm SHA256).Hash
+}
+
 # Build log entry
 $logEntry = @"
 
@@ -210,6 +216,11 @@ $logEntry = @"
 
 #### 改动文件
 $fileListStr
+
+#### Transcript 完整性签名
+- SHA256: ``$transcriptHash``
+- 文件大小: $((Get-Item $jsonlPath).Length) bytes
+- 生成时间: $(Get-Date -Format 'yyyy-MM-ddTHH:mm:ss')
 
 "@
 
