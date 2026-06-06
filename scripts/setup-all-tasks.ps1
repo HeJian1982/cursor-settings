@@ -8,8 +8,8 @@
   1. HJ-Cursor-DailyOptimize  — 每日 07:30，工作区优化
   2. HJ-Cursor-SiteMonitor    — 每 30 分钟，网站健康巡检
   3. HJ-Cursor-DailyIntelligence — 每日 06:00，情报日报
-  4. HJ-Cursor-SkillIntelligence — 每日 07:00，AI工具情报
-  5. HJ-Cursor-ConfigUpdater — 每周日 20:00，Cursor配置周报
+  4. HJ-Cursor-SkillIntelligence — 每日 17:00，AI工具情报
+  5. HJ-Cursor-ConfigUpdater — 每周五 17:10，Cursor配置周报
 
   也支持单独操作各任务（通过 -Task 指定）
 
@@ -85,20 +85,20 @@ $tasks = @{
     }
     SkillIntelligence = @{
         Name        = "HJ-Cursor-SkillIntelligence"
-        Description = "何健每日AI工具情报 — GitHub/GitCode+Skills分析+飞书推送"
+        Description = "何健每日AI工具情报 — 每日17:00，GitHub/GitCode+Skills分析+飞书推送"
         Script      = Join-Path $RepoRoot "scripts\skill-intelligence.ps1"
         Schedule    = "daily"
-        Time        = "07:00"
+        Time        = "17:00"
         Interval    = $null
         Enabled     = $true
     }
     ConfigUpdater = @{
         Name        = "HJ-Cursor-ConfigUpdater"
-        Description = "何健每周Cursor配置分析 — baselines更新+Rules优化+飞书报告"
+        Description = "何健每周Cursor配置分析 — 每周五17:10，baselines更新+Rules优化+飞书报告"
         Script      = Join-Path $RepoRoot "scripts\cursor-config-updater.ps1"
         Schedule    = "weekly"
-        Time        = "20:00"
-        DayOfWeek   = "Sunday"
+        Time        = "17:10"
+        DayOfWeek   = "Friday"
         Interval    = $null
         Enabled     = $true
     }

@@ -3,7 +3,7 @@
   每日 AI 工具情报自动化脚本
 
 .DESCRIPTION
-  每日北京时间 07:00 自动执行以下流程：
+  每日北京时间 17:00 自动执行以下流程：
   1. 抓取 GitHub / GitCode AI 相关热门工具
   2. 分析 Cursor / Claude / GPT 相关 Skills 和工具
   3. 结合项目实践生成洞察报告
@@ -114,8 +114,8 @@ Write-Host ""
 $autoMode = -not $Manual
 if ($autoMode) {
     $hour = $now.Hour
-    if ($hour -ne 7) {
-        Write-Log "非 07:00 定时窗口（当前 $($now.ToString('HH:mm'))），跳过自动执行" -Level "WARN"
+    if ($hour -ne 17) {
+        Write-Log "非 17:00 定时窗口（当前 $($now.ToString('HH:mm'))），跳过自动执行" -Level "WARN"
         Write-Host "使用 -Manual 强制执行" -ForegroundColor Gray
         exit 0
     }

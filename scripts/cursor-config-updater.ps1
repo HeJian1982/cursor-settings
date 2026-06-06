@@ -3,7 +3,7 @@
   Weekly Cursor Config Analysis and Update Script
 
 .DESCRIPTION
-  Runs every Sunday at 20:00 Beijing time:
+  Runs every Friday at 17:10 Beijing time:
   1. Read 7 daily AI tool intelligence reports
   2. Analyze GitHub/GitCode trends vs existing Skills
   3. Generate baselines.json snapshot
@@ -45,13 +45,13 @@ $now = Get-Date
 $startTime = Get-Date
 
 if (-not $Manual) {
-    if ($now.DayOfWeek -ne "Sunday") {
-        Write-Host "[INFO] Not Sunday, skip (current: $($now.DayOfWeek))" -ForegroundColor Yellow
+    if ($now.DayOfWeek -ne "Friday") {
+        Write-Host "[INFO] Not Friday, skip (current: $($now.DayOfWeek))" -ForegroundColor Yellow
         Write-Host "Use -Manual to force run" -ForegroundColor Gray
         exit 0
     }
-    if ($now.Hour -ne 20) {
-        Write-Host "[INFO] Not 20:00 window" -ForegroundColor Yellow
+    if ($now.Hour -ne 17 -or $now.Minute -lt 10) {
+        Write-Host "[INFO] Not 17:10 window (current $($now.ToString('HH:mm')))" -ForegroundColor Yellow
         Write-Host "Use -Manual to force run" -ForegroundColor Gray
         exit 0
     }
