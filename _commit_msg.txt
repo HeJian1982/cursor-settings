@@ -1,10 +1,7 @@
-﻿feat(agent): establish auto-reflection engine + layered memory system
+﻿feat(session-logger): add Cursor conversation logger with SQLite + query tools
 
-- New auto-reflect.ps1: auto-reads transcript after every Commit+Push,
-  parses user messages + file changes, appends to daily log
-- Rewrite 23-daily-summary.mdc v1.1: complete self-reflection workflow,
-  covers daily log / lessons routing / decisions archive / daily summary
-- Update 13-workflow.mdc: Sync phase calls auto-reflect,
-  checklist adds "Git remote check", renumbered sections
-- Update .github/workflows/lint.yml: CI checks auto-reflect.ps1 BOM
-- memory/ added to .gitignore (personal data, not in git)
+- log-conversation.ps1: scan Cursor agent transcripts (JSONL) and upsert to SQLite
+- _cursor_log_engine.py: Python engine (utf-8 parse, SQLite/JSON dual storage)
+- query-sessions.ps1: query/analysis helper (stats, by-day, by-tool, search)
+- setup-all-tasks.ps1: register HJ-Cursor-SessionLogger task (every 30 min)
+- 18 sessions / 917 messages / 18 first queries stored in d:\HJ\Web\cursor-sessions.db

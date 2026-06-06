@@ -6,7 +6,15 @@
                     "run-tests.ps1":  "712C36437F1711FE64991A19A6C4EEDE8A813EAE12460D44BB1B1E81E8005413",
                     "append-daily-log.ps1":  "26208CB51E77198798067DC801A0E955921C864FF66DDEECD35722604B564AF1",
                     "sync-local-configs.ps1":  "4F63DE6B4FB937EAE1D692A41EF63B0AD558471A60E28762EC1703AC9F5C06AB",
-                    "sync-global-rule.ps1":  "2B9BF519AB6B49FAEADD0DC5496E4D29FCD9F0D6364CFF26A04E2D9C92773E5C"
+                    "sync-global-rule.ps1":  "2B9BF519AB6B49FAEADD0DC5496E4D29FCD9F0D6364CFF26A04E2D9C92773E5C",
+                    "daily-optimize.ps1":  "c3cd93ef997fd2850da8a96d65218c13",
+                    "daily-intelligence.ps1":  "34b8b67b180458d5338d9ac56184075a",
+                    "setup-all-tasks.ps1":  "b3bfd26e69b157f0fbeab5b8717e0586",
+                    "site-monitor.ps1":  "746e61e3c2c0e6e415f04b24f7390beb"
+                },
+    "prompts": {
+                    "daily-intelligence-prompt.md":  "020f375af24d6f40c3e9c1a2968571b3",
+                    "site-monitor-prompt.md":  "30157f41b1840bc5b4b683b7f4af3698"
                 },
     "generatedAt":  "2026-06-06T17:00:15",
     "skills":  {

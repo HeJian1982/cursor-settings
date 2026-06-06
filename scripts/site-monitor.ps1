@@ -1,30 +1,16 @@
 ﻿<#
 .SYNOPSIS
-  网站健康快检 — 支持多站点并行检查
-
+  网站健康快检 — 多站点并行检查
 .DESCRIPTION
-  对指定站点做 30 秒内轻量级健康检查，输出格式严格遵循 bot 输出规范。
-  支持多站点（hj1982.cn / 1982.cn 及子路径）并行检测。
-
-  执行策略：
-  - 正常时只输出一行状态行
-  - 失败时输出场景 B 告警
-  - 性能劣化时输出场景 C 提示
-  - 同一异常连续 3 次自动升级
-
-  巡检结果写入 memory/site-monitor/state.json（无需 Memory skill，JSON 文件实现）
-
+  对目标站点做 30 秒内轻量级健康检查，输出场景 A/B/C 格式。
+  巡检结果写入 memory/site-monitor/state.json。
 .PARAMETER Sites
-  要检查的站点列表，逗号分隔。
-  默认: hj1982.cn,1982.cn
-
+  逗号分隔的站点列表，默认: hj1982.cn,1982.cn
 .PARAMETER OutputJson
-  输出 JSON 格式结果（供外部调用）
-
+  输出 JSON 格式
 .EXAMPLE
   .\site-monitor.ps1
-  .\site-monitor.ps1 -Sites "hj1982.cn,1982.cn,blog.hj1982.cn"
-  .\site-monitor.ps1 -OutputJson
+  .\site-monitor.ps1 -Sites "hj1982.cn,1982.cn" -OutputJson
 #>
 
 [CmdletBinding()]
@@ -35,214 +21,185 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
-# ── 站点配置 ────────────────────────────────────────────
-$SiteList = $Sites -split ',' | ForEach-Object { $_.Trim() }
-
 $RepoRoot  = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$StateFile  = Join-Path $RepoRoot "memory\site-monitor\state.json"
-$LogDir     = Join-Path $RepoRoot "logs"
-$utf8Bom    = New-Object System.Text.UTF8Encoding $true
+$StateFile = Join-Path $RepoRoot "memory\site-monitor\state.json"
+$LogDir    = Join-Path $RepoRoot "logs"
+$utf8Bom   = New-Object System.Text.UTF8Encoding $true
+
+$now       = Get-Date
+$beijingTs = $now.ToUniversalTime().AddHours(8).ToString("HH:mm")
 
 # ── 记忆读写 ────────────────────────────────────────────
-function Get-Memory {
+function Get-Mem {
     param([string]$Key, $Default = $null)
     if (-not (Test-Path $StateFile)) { return $Default }
     try {
-        $json = Get-Content $StateFile -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($json.PSObject.Properties.Name -contains $Key) {
-            return $json.$Key
-        }
+        $j = Get-Content $StateFile -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
+        if ($j -and $j.ContainsKey($Key)) { return $j[$Key] }
         return $Default
     } catch { return $Default }
 }
 
-function Set-Memory {
+function Set-Mem {
     param([string]$Key, $Value)
     $obj = @{}
     if (Test-Path $StateFile) {
-        try {
-            $obj = Get-Content $StateFile -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable
-        } catch { $obj = @{} }
+        try { $obj = Get-Content $StateFile -Raw -Encoding UTF8 | ConvertFrom-Json -AsHashtable } catch {}
     }
     $obj[$Key] = $Value
     $dir = Split-Path $StateFile
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
-    $obj | ConvertTo-Json -Depth 10 | ForEach-Object { [System.IO.File]::WriteAllText($StateFile, $_, $utf8Bom) }
+    [System.IO.File]::WriteAllText($StateFile, ($obj | ConvertTo-Json -Depth 10), $utf8Bom)
 }
 
-# ── HTTP 检查 ───────────────────────────────────────────
-function Get-ResponseTime {
+# ── 读取记忆 ────────────────────────────────────────────
+$prevVersion       = Get-Mem "prev_version"       $null
+$consecutiveFails  = Get-Mem "consecutive_failures" 0
+$lastFailureItem   = Get-Mem "last_failure_item"  $null
+$baselineHomeMs    = Get-Mem "baseline_home_ms"   $null
+$baselineApiMs     = Get-Mem "baseline_api_ms"    $null
+$baselineHomeList  = Get-Mem "baseline_home_list" @()
+$baselineApiList   = Get-Mem "baseline_api_list"  @()
+
+# ── HTTP 检查函数 ──────────────────────────────────────
+function Test-Site {
     param([string]$Url, [int]$TimeoutMs = 8000)
     $sw = [Diagnostics.Stopwatch]::StartNew()
     try {
         $req = [System.Net.HttpWebRequest]::Create($Url)
         $req.Timeout = $TimeoutMs
-        $req.UserAgent = "SiteMonitorBot/1.0"
+        $req.UserAgent = "SiteMonitor/1.0"
         $req.AllowAutoRedirect = $true
         $req.MaximumAutomaticRedirections = 3
         $resp = $req.GetResponse()
-        $statusCode = [int]$resp.StatusCode
+        $code = [int]$resp.StatusCode
         $resp.Close()
         $sw.Stop()
-        return @{ ok = $true; statusCode = $statusCode; ms = $sw.ElapsedMilliseconds; error = $null }
+        return @{ ok = $true; code = $code; ms = $sw.ElapsedMilliseconds; err = $null }
     } catch {
         $sw.Stop()
+        $code = 0
         $msg = $_.Exception.Message
-        $statusCode = 0
-        if ($_.Exception -is [System.Net.WebException]) {
-            $we = $_.Exception -as [System.Net.WebException]
-            if ($we.Response) {
-                $statusCode = [int]$we.Response.StatusCode
-            }
-        }
-        return @{ ok = $false; statusCode = $statusCode; ms = $sw.ElapsedMilliseconds; error = $msg }
+        $we = $_.Exception -as [System.Net.WebException]
+        if ($we -and $we.Response) { $code = [int]$we.Response.StatusCode }
+        return @{ ok = $false; code = $code; ms = $sw.ElapsedMilliseconds; err = $msg }
     }
 }
 
-function Get-CertDaysLeft {
-    param([string]$Host)
+function Get-SiteVersion {
+    param([string]$Domain)
+    $url = "https://$Domain/api/version"
     try {
-        $req = [Net.HttpWebRequest]::Create("https://$Host/")
+        $r = Invoke-RestMethod -Uri $url -TimeoutSec 6 -UserAgent "SiteMonitor/1.0" -ErrorAction Stop
+        if ($r.version) { return @{ ok = $true; value = $r.version } }
+        $body = $r | ConvertTo-Json -Compress -ErrorAction SilentlyContinue
+        if ($body -match '"version"\s*:\s*"([^"]+)"') { return @{ ok = $true; value = $matches[1] } }
+        return @{ ok = $false; value = $null }
+    } catch { return @{ ok = $false; value = $null } }
+}
+
+function Get-SiteHealth {
+    param([string]$Domain)
+    $url = "https://$Domain/api/health"
+    try {
+        $r = Invoke-RestMethod -Uri $url -TimeoutSec 6 -UserAgent "SiteMonitor/1.0" -ErrorAction Stop
+        return @{ ok = $true; code = 200 }
+    } catch {
+        $we = $_.Exception -as [System.Net.WebException]
+        if ($we -and $we.Response) {
+            $code = [int]$we.Response.StatusCode
+            return @{ ok = ($code -ne 404); code = $code; note = if ($code -eq 404) { "not_found" } else { $null } }
+        }
+        return @{ ok = $false; code = 0 }
+    }
+}
+
+function Get-CertDays {
+    param([string]$Domain)
+    try {
+        $req = [System.Net.HttpWebRequest]::Create("https://$Domain/")
         $req.Method = "HEAD"
         $req.Timeout = 5000
         $req.ServicePoint.Certificate | Out-Null
         $cert = $req.ServicePoint.Certificate
         if (-not $cert) { return $null }
         $expiry = [DateTime]::Parse($cert.GetExpirationDateString())
-        $days = ($expiry - (Get-Date)).Days
+        $days = ($expiry - $now).Days
         $req.Abort()
         return $days
-    } catch {
-        return $null
-    }
+    } catch { return $null }
 }
 
-function Get-Version {
-    param([string]$Host)
-    $url = "https://$Host/api/version"
-    try {
-        $resp = Invoke-RestMethod -Uri $url -TimeoutSec 5 -UserAgent "SiteMonitorBot/1.0"
-        if ($resp.version) { return $resp.version }
-        $body = $resp | ConvertTo-Json -Compress
-        if ($body -match '"version"\s*:\s*"([^"]+)"') { return $matches[1] }
-        return $null
-    } catch {
-        return $null
-    }
-}
-
-function Get-ApiHealth {
-    param([string]$Host)
-    $url = "https://$Host/api/health"
-    try {
-        $resp = Invoke-RestMethod -Uri $url -TimeoutSec 5 -UserAgent "SiteMonitorBot/1.0"
-        return @{ ok = $true; statusCode = 200; body = $resp }
-    } catch {
-        if ($_.Exception -is [System.Net.WebException]) {
-            $we = $_.Exception -as [System.Net.WebException]
-            if ($we.Response) {
-                $code = [int]$we.Response.StatusCode
-                return @{ ok = $code -ne 404; statusCode = $code; body = $null; note = "not_found" }
-            }
-        }
-        return @{ ok = $false; statusCode = 0; body = $null; error = $_.Exception.Message }
-    }
-}
-
-# ── 记忆读取（巡检前）─────────────────────────────────
-$lastVersion       = Get-Memory "last_version"       $null
-$consecutiveFails  = Get-Memory "consecutive_failures" 0
-$lastFailureItem   = Get-Memory "last_failure_item"  $null
-$baselineHome      = Get-Memory "baseline_home_ms"   $null
-$baselineApi       = Get-Memory "baseline_api_ms"    $null
-$baselineList      = Get-Memory "baseline_home_list" @()
-$baselineApiList   = Get-Memory "baseline_api_list"  @()
-$prevVersion       = Get-Memory "prev_version"        $null
-
-# ── 执行巡检 ──────────────────────────────────────────
-$now = Get-Date
-$timestamp = $now.ToString("HH:mm")
-$beijingNow = $now.ToUniversalTime().AddHours(8)
-$beijingTs  = $beijingNow.ToString("HH:mm")
-
-$results = @()
+# ── 执行巡检 ────────────────────────────────────────────
+$domainList = $Sites -split ',' | ForEach-Object { $_.Trim() }
+$allResults = @()
 $globalFailure = $false
-$globalFailureItems = @()
+$versionChanged = $false
 
-foreach ($site in $SiteList) {
-    $r = @{ site = $site; ok = $true; items = @{}; failures = @() }
+foreach ($domain in $domainList) {
+    # 首页
+    $homeResult = Test-Site -Url "https://$domain/" -TimeoutMs 8000
 
-    # 1. 首页检查
-    $homeResult = Get-ResponseTime -Url "https://$site/" -TimeoutMs 8000
-    $r.items["home"] = $homeResult
-    $r.homeMs = $homeResult.ms
+    # Version
+    $verResult = Get-SiteVersion -Domain $domain
+    $ver = $verResult.value
 
-    # 2. API version
-    $ver = Get-Version -Host $site
-    $r.items["version"] = @{ value = $ver }
+    # Health
+    $healthResult = Get-SiteHealth -Domain $domain
 
-    # 3. API health
-    $health = Get-ApiHealth -Host $site
-    $r.items["health"] = $health
+    # 证书
+    $certDays = Get-CertDays -Domain $domain
 
-    # 4. HTTPS 证书
-    $certDays = Get-CertDaysLeft -Host $site
-    $r.items["cert"] = @{ daysLeft = $certDays }
-
-    # 5. 关键字检查（复用首页内容）
+    # 关键字
+    $keywordFound = $null
     if ($homeResult.ok -and $homeResult.ms -lt 5000) {
         try {
-            $req2 = [System.Net.HttpWebRequest]::Create("https://$site/")
+            $req2 = [System.Net.HttpWebRequest]::Create("https://$domain/")
             $req2.Timeout = 8000
-            $req2.UserAgent = "SiteMonitorBot/1.0"
-            $resp2 = $req2.GetResponse()
-            $sr = New-Object System.IO.StreamReader($resp2.GetResponseStream())
-            $html = $sr.ReadToEnd()
-            $sr.Close()
-            $resp2.Close()
-            $r.items["keyword"] = @{ found = ($html -match '何健') }
-        } catch {
-            $r.items["keyword"] = @{ found = $null; error = $_.Exception.Message }
-        }
-    } else {
-        $r.items["keyword"] = @{ found = $null; note = "home_failed" }
+            $req2.UserAgent = "SiteMonitor/1.0"
+            $rp2 = $req2.GetResponse()
+            $sr2 = New-Object System.IO.StreamReader($rp2.GetResponseStream())
+            $html = $sr2.ReadToEnd()
+            $sr2.Close(); $rp2.Close()
+            $keywordFound = $html -match '何健'
+        } catch { $keywordFound = $null }
     }
 
-    # 判断失败项
-    if (-not $homeResult.ok) {
-        $r.failures += "首页"
-        $r.ok = $false
-    }
-    if ($homeResult.ok -and $homeResult.ms -gt 5000) {
-        $r.perfDegraded = $true
-    }
-    if ($ver -eq $null -and $homeResult.ok) {
-        $r.failures += "Version字段"
-    }
-    if (-not $health.ok) {
-        $r.failures += "Health接口"
-    }
-    if ($certDays -ne $null -and $certDays -le 7) {
-        $r.failures += "证书过期"
-    }
+    # 失败项
+    $failures = @()
+    if (-not $homeResult.ok) { $failures += "首页" }
+    if ($homeResult.ok -and $homeResult.ms -gt 5000) { $failures += "性能劣化" }
+    if (-not $verResult.ok -and $homeResult.ok) { $failures += "Version字段" }
+    if (-not $healthResult.ok) { $failures += "Health接口" }
+    if ($null -ne $certDays -and $certDays -le 7) { $failures += "证书过期" }
 
-    if (-not $r.ok) { $globalFailure = $true }
-    $results += $r
-}
+    if ($failures.Count -gt 0) { $globalFailure = $true }
+    if ($ver -and $prevVersion -and $ver -ne $prevVersion) { $versionChanged = $true }
 
-# ── Version 变化检测 ──────────────────────────────────
-$versionChanged = $false
-foreach ($r in $results) {
-    if ($r.items.version.value -and $prevVersion -and $r.items.version.value -ne $prevVersion) {
-        $versionChanged = $true
-        break
+    $obj = @{
+        site = $domain
+        homeOk = $homeResult.ok
+        homeCode = $homeResult.code
+        homeMs = $homeResult.ms
+        homeErr = $homeResult.err
+        version = $ver
+        versionOk = $verResult.ok
+        healthOk = $healthResult.ok
+        healthCode = $healthResult.code
+        certDays = $certDays
+        keywordFound = $keywordFound
+        failures = $failures
+        perfDegraded = ($homeResult.ok -and $homeResult.ms -gt 5000)
+        ok = ($failures.Count -eq 0)
     }
+    $allResults += $obj
 }
 
 # ── 连续失败计数 ──────────────────────────────────────
 if ($globalFailure) {
-    if ($lastFailureItem -eq "global" -or $lastFailureItem -eq ($results[0].failures -join ',')) {
-        $consecutiveFails++
+    $failStr = ($allResults[0].failures -join ',')
+    if ($lastFailureItem -eq $failStr) {
+        $consecutiveFails = [int]$consecutiveFails + 1
     } else {
         $consecutiveFails = 1
     }
@@ -250,168 +207,126 @@ if ($globalFailure) {
     $consecutiveFails = 0
 }
 
-# ── 更新基线 ──────────────────────────────────────────
-foreach ($r in $results) {
-    if ($r.ok -and -not $r.perfDegraded) {
-        # 首页基线：滑动平均（保留最近 3 次）
-        $newList = @($r.homeMs) + @($baselineList) | Select-Object -First 3
-        $newBaseline = [int](($newList | Measure-Object -Average).Average)
-        Set-Memory "baseline_home_list" $newList
-        Set-Memory "baseline_home_ms" $newBaseline
-
-        # API 基线
-        if ($r.items.health.ok) {
-            $apiMs = Get-ResponseTime -Url "https://$($r.site)/api/version" -TimeoutMs 5000
-            $newApiList = @($apiMs.ms) + @($baselineApiList) | Select-Object -First 3
-            $newApiBaseline = [int](($newApiList | Measure-Object -Average).Average)
-            Set-Memory "baseline_api_list" $newApiList
-            Set-Memory "baseline_api_ms" $newApiBaseline
-        }
+# ── 更新基线 ───────────────────────────────────────────
+if (-not $globalFailure) {
+    $h = $allResults[0].homeMs
+    if ($null -ne $h) {
+        $list = @($h) + @($baselineHomeList)
+        $list = $list | Select-Object -First 3
+        $avg = [int](($list | Measure-Object -Average).Average)
+        Set-Mem "baseline_home_list" $list
+        Set-Mem "baseline_home_ms" $avg
     }
 }
 
 # ── 写记忆 ────────────────────────────────────────────
-if ($results[0].items.version.value) {
-    Set-Memory "prev_version" $results[0].items.version.value
-}
-Set-Memory "consecutive_failures" $consecutiveFails
-Set-Memory "last_failure_item" $(if ($globalFailure) { $results[0].failures -join ',' } else { $null })
-Set-Memory "last_check" $now.ToString("yyyy-MM-dd HH:mm:ss")
-Set-Memory "last_sites" $SiteList
+if ($allResults[0].version) { Set-Mem "prev_version" $allResults[0].version }
+Set-Mem "consecutive_failures" $consecutiveFails
+Set-Mem "last_failure_item" $(if ($globalFailure) { ($allResults[0].failures -join ',') } else { $null })
+Set-Mem "last_check" $now.ToString("yyyy-MM-dd HH:mm:ss")
 
-# ── 性能基线（全局）──────────────────────────────────
-$currentBaselineHome = Get-Memory "baseline_home_ms" 0
-$currentBaselineApi  = Get-Memory "baseline_api_ms" 0
-
-# ── 输出 ─────────────────────────────────────────────
-function Get-Row {
-    param($r, $baselineHome, $baselineApi)
-    $status = if ($r.ok) { "✅" } else { "❌" }
-    $homeMs = if ($r.homeMs) { "$($r.homeMs)ms" } else { "N/A" }
-    $ver = if ($r.items.version.value) { "v=$($r.items.version.value)" } else { "v=N/A" }
-    $cert = if ($r.items.cert.daysLeft -ne $null) { "cert=$($r.items.cert.daysLeft)d" } else { "cert=N/A" }
-    return "$status $($r.site) | home=$homeMs | $ver | $cert"
+# ── 输出 ───────────────────────────────────────────────
+function Out-Row($r) {
+    $st = if ($r.ok) { "OK" } else { "FAIL" }
+    $hm = if ($null -ne $r.homeMs) { "$($r.homeMs)ms" } else { "N/A" }
+    $vr = if ($r.version) { "v=$($r.version)" } else { "v=N/A" }
+    $ct = if ($null -ne $r.certDays) { "cert=$($r.certDays)d" } else { "cert=N/A" }
+    return "  $($r.site): home=$hm | $vr | $ct"
 }
 
-# 构建输出
-$outputLines = @()
+$anyFailure   = ($allResults | Where-Object { -not $_.ok }).Count -gt 0
+$anyDegraded  = ($allResults | Where-Object { $_.perfDegraded }).Count -gt 0
 
-# 场景 A：全部正常
-$allOk = ($results | Where-Object { -not $_.ok -and -not $_.perfDegraded } | Measure-Object).Count -eq 0
-$noDegraded = ($results | Where-Object { $_.perfDegraded } | Measure-Object).Count -eq 0
-
-if ($allOk -and $noDegraded) {
-    $rows = $results | ForEach-Object { Get-Row $_ $currentBaselineHome $currentBaselineApi }
-    $line = "✅ $beijingTs 全部正常 | $($rows -join ' | ')"
-    if ($OutputJson) {
-        $outputLines += $line
-    } else {
-        Write-Output $line
+if (-not $anyFailure -and -not $anyDegraded) {
+    # 场景 A
+    $lines = @()
+    $line = "✅ $beijingTs 全部正常"
+    foreach ($r in $allResults) { $line += " | $(Out-Row $r)" }
+    $lines += $line
+    if ($versionChanged) {
+        $lines += "📦 检测到发版：$prevVersion → $($allResults[0].version)"
     }
-    # Version 变化
-    if ($versionChanged -and $results[0].items.version.value) {
-        $vLine = "📦 检测到发版：$prevVersion → $($results[0].items.version.value)"
-        $outputLines += $vLine
-        if (-not $OutputJson) { Write-Output $vLine }
+    if ($OutputJson) {
+        Write-Output ($lines -join "`n")
+    } else {
+        foreach ($l in $lines) { Write-Output $l }
     }
 } else {
-    # 场景 B：失败 / 场景 C：性能劣化
-    foreach ($r in $results) {
-        $failureLines = @()
-
+    foreach ($r in $allResults) {
         if (-not $r.ok) {
             # 场景 B
-            $failureLines += "🚨 [$beijingTs] $($r.site) 异常告警"
-            foreach ($fi in $r.failures) {
-                $phenomenon = switch ($fi) {
+            Write-Output "🚨 [$beijingTs] $($r.site) 异常告警"
+            foreach ($f in $r.failures) {
+                $phen = switch ($f) {
                     "首页" {
-                        $hr = $r.items.home
-                        if ($hr.statusCode) { "HTTP $($hr.statusCode)，耗时 $($hr.ms)ms，错误：$($hr.error)" }
-                        else { "连接失败，耗时 $($hr.ms)ms，错误：$($hr.error)" }
+                        if ($r.homeCode -ne 0) { "HTTP $($r.homeCode)，耗时 $($r.homeMs)ms" }
+                        else { "连接失败，耗时 $($r.homeMs)ms" }
                     }
-                    "Version字段" { "无法获取 Version 字段（接口返回空或错误）" }
-                    "Health接口" {
-                        $h = $r.items.health
-                        "HTTP $($h.statusCode)，错误：$($h.error)"
-                    }
-                    "证书过期" { "证书剩余 $($r.items.cert.daysLeft) 天（≤7天告警）" }
-                    default { "未知故障" }
+                    "性能劣化" { "首页 $($r.homeMs)ms（基线 ${baselineHomeMs}ms）" }
+                    "Version字段" { "无法获取 Version 字段" }
+                    "Health接口" { "HTTP $($r.healthCode)" }
+                    "证书过期" { "证书剩余 $($r.certDays) 天" }
+                    default { "" }
                 }
-                $severity = switch ($fi) {
-                    "首页"     { "P0" }
-                    "证书过期" { "P1" }
-                    default    { "P1" }
+                $sev = if ($f -eq "首页") { "P0" } else { "P1" }
+                $sug = switch ($f) {
+                    "首页"     { "立即登录阿里云控制台检查 ECS 状态" }
+                    "证书过期" { "立即在阿里云更新 SSL 证书" }
+                    default    { "登录服务器检查相关服务" }
                 }
-                $suggestion = switch ($fi) {
-                    "首页"     { "立即登录阿里云控制台检查 ECS 状态，或联系主机商确认网络连通性" }
-                    "Version字段" { "检查后端服务是否正常响应 /api/version" }
-                    "Health接口" { "检查后端 health 接口，排查服务健康状态" }
-                    "证书过期" { "立即在阿里云证书控制台更新 SSL 证书" }
-                    default    { "登录服务器检查相关服务日志" }
-                }
-                $failureLines += "失败项：$fi"
-                $failureLines += "现象：$phenomenon"
-                $failureLines += "严重度：$severity"
-                $failureLines += "建议立即操作：$suggestion"
+                Write-Output "失败项：$f"
+                Write-Output "现象：$phen"
+                Write-Output "严重度：$sev"
+                Write-Output "建议立即操作：$sug"
             }
-
-            # 版本变化
-            if ($versionChanged -and $r.items.version.value) {
-                $failureLines += "📦 检测到发版：$prevVersion → $($r.items.version.value)"
+            if ($versionChanged) {
+                Write-Output "📦 检测到发版：$prevVersion → $($r.version)"
             }
-
-            # 连续失败升级
             if ($consecutiveFails -ge 3) {
-                $failureLines += "⚠️ 建议人工介入：同一异常已连续出现 $consecutiveFails 次（约 $([int]($consecutiveFails * 0.5)) 小时）"
+                $hours = [int]($consecutiveFails * 0.5)
+                Write-Output "⚠️ 建议人工介入：同一异常已连续出现 $consecutiveFails 次（约 $hours 小时）"
             }
-
-            foreach ($l in $failureLines) {
-                $outputLines += $l
-                if (-not $OutputJson) { Write-Output $l }
-            }
+            Write-Output ""
         } elseif ($r.perfDegraded) {
             # 场景 C
-            $baseline = if ($r.homeMs -gt $currentBaselineHome) { $currentBaselineHome } else { $r.homeMs }
-            $degradedLine = "⚠️ [$beijingTs] $($r.site) 性能劣化 | 首页 $($r.homeMs)ms（基线 ${currentBaselineHome}ms）"
-            $outputLines += $degradedLine
-            if (-not $OutputJson) { Write-Output $degradedLine }
-
-            if ($versionChanged -and $r.items.version.value) {
-                $vLine = "📦 检测到发版：$prevVersion → $($r.items.version.value)"
-                $outputLines += $vLine
-                if (-not $OutputJson) { Write-Output $vLine }
+            $base = if ($null -ne $baselineHomeMs) { $baselineHomeMs } else { "?" }
+            Write-Output "⚠️ [$beijingTs] $($r.site) 性能劣化 | 首页 $($r.homeMs)ms（基线 ${base}ms）"
+            if ($versionChanged) {
+                Write-Output "📦 检测到发版：$prevVersion → $($r.version)"
             }
+            Write-Output ""
         }
     }
 }
 
-# 写日志
+# ── 写日志 ──────────────────────────────────────────────
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Force -Path $LogDir | Out-Null }
-$logLine = "$($now.ToString('yyyy-MM-dd HH:mm:ss')) $beijingTs | $($results | ForEach-Object { "$($_.site):ok=$($_.ok),ms=$($_.homeMs),v=$($_.items.version.value)" } -join ' | ')`n"
-[System.IO.File]::AppendAllText((Join-Path $LogDir "site-monitor.log"), $logLine, $utf8Bom)
+$logFile = Join-Path $LogDir "site-monitor.log"
+$logLine = "$($now.ToString('yyyy-MM-dd HH:mm:ss')) $beijingTs"
+foreach ($r in $allResults) {
+    $logLine += " | $($r.site):ok=$($r.ok),ms=$($r.homeMs),v=$($r.version)"
+}
+$logLine += "`n"
+[System.IO.File]::AppendAllText($logFile, $logLine, $utf8Bom)
 
-# JSON 输出
+# ── JSON 输出 ───────────────────────────────────────────
 if ($OutputJson) {
     $json = @{
         timestamp = $now.ToString("yyyy-MM-dd HH:mm:ss")
         beijingTime = $beijingTs
-        allOk = $allOk -and $noDegraded
+        allOk = (-not $anyFailure -and -not $anyDegraded)
         versionChanged = $versionChanged
         consecutiveFails = $consecutiveFails
         sites = @()
     }
-    foreach ($r in $results) {
+    foreach ($r in $allResults) {
         $json.sites += @{
             site = $r.site
             ok = $r.ok
             homeMs = $r.homeMs
-            homeOk = $r.items.home.ok
-            homeStatusCode = $r.items.home.statusCode
-            version = $r.items.version.value
-            healthOk = $r.items.health.ok
-            healthStatusCode = $r.items.health.statusCode
-            certDaysLeft = $r.items.cert.daysLeft
-            keywordFound = $r.items.keyword.found
+            homeCode = $r.homeCode
+            version = $r.version
+            certDays = $r.certDays
             failures = $r.failures
             perfDegraded = $r.perfDegraded
         }
