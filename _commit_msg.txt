@@ -1,0 +1,10 @@
+﻿feat(agent): establish auto-reflection engine + layered memory system
+
+- New auto-reflect.ps1: auto-reads transcript after every Commit+Push,
+  parses user messages + file changes, appends to daily log
+- Rewrite 23-daily-summary.mdc v1.1: complete self-reflection workflow,
+  covers daily log / lessons routing / decisions archive / daily summary
+- Update 13-workflow.mdc: Sync phase calls auto-reflect,
+  checklist adds "Git remote check", renumbered sections
+- Update .github/workflows/lint.yml: CI checks auto-reflect.ps1 BOM
+- memory/ added to .gitignore (personal data, not in git)

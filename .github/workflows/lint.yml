@@ -32,6 +32,11 @@ jobs:
             'scripts/sync-global-rule.ps1',
             'scripts/sync-local-configs.ps1',
             'scripts/auto-reflect.ps1',
+            'scripts/daily-intelligence.ps1',
+            'scripts/setup-daily-intelligence-task.ps1',
+            'scripts/site-monitor.ps1',
+            'scripts/setup-site-monitor-task.ps1',
+            'scripts/setup-all-tasks.ps1',
             'tests/run-tests.ps1'
           )
           $failed = 0

@@ -5,12 +5,12 @@
 .DESCRIPTION
   Runs all optimization and health checks in one pass:
 
-  1. Integrity baseline check  -> T9/T13/T14/T15
-  2. Pull latest local configs -> sync-local-configs.ps1 Pull
-  3. Re-generate baselines      -> generate-baselines.ps1
-  4. Run full test suite       -> run-tests.ps1
-  5. Append session log         -> append-daily-log.ps1
-  6. Git commit (if dirty)      -> only if files changed
+  1. Pull latest local configs  -> sync-local-configs.ps1
+  2. Site health check         -> site-monitor.ps1 (hj1982.cn / 1982.cn)
+  3. Run full test suite       -> run-tests.ps1
+  4. Re-generate baselines      -> generate-baselines.ps1
+  5. Run test suite again      -> run-tests.ps1 (post-baseline)
+  6. Git commit (if dirty)     -> only if files changed
   7. Git push (if remote)      -> only if remote exists
 
   Designed for both interactive use and Task Scheduler automation.
@@ -118,9 +118,20 @@ $steps += @{
     }
 }
 
-# ── Step 2: Run test suite ──────────────────────────────────
+# ── Step 2: Site health check ───────────────────────────
 $steps += @{
-    Name = "Run test suite (84 checks)"
+    Name = "Site health check (hj1982.cn / 1982.cn)"
+    ScriptBlock = {
+        powershell -ExecutionPolicy Bypass -File "$RepoRoot\scripts\site-monitor.ps1" 2>&1 | Out-String
+        # site-monitor.ps1 输出到控制台和日志，不影响主流程
+        # exit code 0 始终成功（正常/劣化/失败都算执行完成）
+        return $true
+    }
+}
+
+# ── Step 3: Run test suite ────────────────────────────────
+$steps += @{
+    Name = "Run test suite (baseline check)"
     ScriptBlock = {
         if ($DryRun) {
             powershell -ExecutionPolicy Bypass -File "$RepoRoot\tests\run-tests.ps1" 2>&1 | Out-String
@@ -132,7 +143,7 @@ $steps += @{
     }
 }
 
-# ── Step 3: Re-generate baselines ────────────────────────────
+# ── Step 4: Re-generate baselines ──────────────────────────
 $steps += @{
     Name = "Re-generate baselines"
     ScriptBlock = {
@@ -141,7 +152,7 @@ $steps += @{
     }
 }
 
-# ── Step 4: Run test suite again (post-baseline) ─────────────
+# ── Step 5: Run test suite again (post-baseline) ──────────
 $steps += @{
     Name = "Run test suite (post-baseline)"
     ScriptBlock = {
