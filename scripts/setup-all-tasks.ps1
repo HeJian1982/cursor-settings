@@ -6,10 +6,7 @@
   在 Windows Task Scheduler 中一次性注册/查看/移除三个任务：
 
   1. HJ-Cursor-DailyOptimize  — 每日 07:30，工作区优化
-  2. HJ-Cursor-SiteMonitor    — 每 30 分钟，网站健康巡检
-  3. HJ-Cursor-DailyIntelligence — 每日 06:00，情报日报
-  4. HJ-Cursor-SkillIntelligence — 每日 17:00，AI工具情报
-  5. HJ-Cursor-ConfigUpdater — 每周五 17:10，Cursor配置周报
+  2. HJ-Cursor-SiteMonitor    — 每 30 分钟，网站健康巡检<br>  3. HJ-Cursor-DailyIntelligence — 每日 06:00，情报日报<br>  4. HJ-Cursor-SkillIntelligence — 每日 17:00，AI工具情报<br>  5. HJ-Cursor-ConfigUpdater — 每周五 17:10，Cursor配置周报<br>  6. HJ-Cursor-SessionLogger — 每 30 分钟，Cursor对话入库
 
   也支持单独操作各任务（通过 -Task 指定）
 
@@ -44,7 +41,7 @@ param(
     [ValidateSet('Register', 'Unregister', 'Show', 'Test', 'TestAll')]
     [string]$Action = 'Show',
 
-    [ValidateSet('Optimize', 'Monitor', 'Intelligence', 'SkillIntelligence', 'ConfigUpdater', 'All')]
+    [ValidateSet('Optimize', 'Monitor', 'Intelligence', 'SkillIntelligence', 'ConfigUpdater', 'SessionLogger', 'All')]
     [string]$Task = 'All',
 
     [string]$UserContext = ""
@@ -100,6 +97,15 @@ $tasks = @{
         Time        = "17:10"
         DayOfWeek   = "Friday"
         Interval    = $null
+        Enabled     = $true
+    }
+    SessionLogger = @{
+        Name        = "HJ-Cursor-SessionLogger"
+        Description = "何健 Cursor 对话记录器 — 每30分钟扫描transcript并入库SQLite"
+        Script      = Join-Path $RepoRoot "scripts\log-conversation.ps1"
+        Schedule    = "interval"
+        Time        = $null
+        Interval    = 30
         Enabled     = $true
     }
 }
@@ -225,6 +231,7 @@ function Show-Tasks {
             "Intelligence"      { "📰" }
             "SkillIntelligence" { "🛠️" }
             "ConfigUpdater"     { "🔄" }
+            "SessionLogger"     { "💬" }
         }
         $schedule = switch ($t.Schedule) {
             "daily"   { "每日 $($t.Time)" }
@@ -252,6 +259,7 @@ function Show-Tasks {
             "Intelligence"      { "📰" }
             "SkillIntelligence" { "🛠️" }
             "ConfigUpdater"     { "🔄" }
+            "SessionLogger"     { "💬" }
         }
 
         Write-Host "$emoji $key — $($t.Name)" -ForegroundColor White
