@@ -8,6 +8,7 @@
   1. HJ-Cursor-DailyOptimize     — 每日 07:30，工作区优化
   2. HJ-Cursor-SiteMonitor       — 每 30 分钟，网站健康巡检
   3. HJ-Cursor-DailyIntelligence  — 每日 06:00，情报日报
+  4. HJ-Cursor-TrendingInspect — 每日 08:00，GitHub+GitCode 热榜巡检
 
   使用 schtasks.exe + chcp 65001 避免编码问题。
 
@@ -31,7 +32,7 @@ param(
     [ValidateSet('Register', 'Unregister', 'Show', 'Test', 'TestAll')]
     [string]$Action = 'Show',
 
-    [ValidateSet('Optimize', 'Monitor', 'Intelligence', 'All')]
+    [ValidateSet('Optimize', 'Monitor', 'Intelligence', 'Trending', 'All')]
     [string]$Task = 'All',
 
     [string]$UserContext = ""
@@ -65,6 +66,14 @@ $tasks = [ordered]@{
         Script      = Join-Path $RepoRoot "scripts\daily-intelligence.ps1"
         Schedule    = "daily"
         Time        = "06:00"
+        Interval    = 0
+    }
+    Trending = @{
+        Name        = "HJ-Cursor-TrendingInspect"
+        Desc        = "Daily GitHub + GitCode Trending inspection, Feishu push"
+        Script      = Join-Path $RepoRoot "scripts\trending-inspect.ps1"
+        Schedule    = "daily"
+        Time        = "08:00"
         Interval    = 0
     }
 }
@@ -150,7 +159,7 @@ switch ($Action) {
             $detail = if ($parts[2]) { $parts[2] } else { "" }
 
             if ($status -eq "OK") {
-                $emoji = if ($key -eq "Optimize") { "OPTI" } elseif ($key -eq "Monitor") { "MON" } else { "INTL" }
+                $emoji = @{ Optimize = "OPTI"; Monitor = "MON"; Intelligence = "INTL"; Trending = "TREND" }[$key]
                 Write-Host "$emoji OK | $name | $detail" -ForegroundColor Green
             } elseif ($status -eq "SKIP_USER") {
                 Write-Host "SKIP | $name | requires password: $detail" -ForegroundColor Yellow

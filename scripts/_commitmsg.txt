@@ -1,9 +1,0 @@
-feat(automation): add site-monitor + daily-intelligence + unified-task-setup
-
-- site-monitor.ps1: multi-site health check with memory/state tracking
-- daily-intelligence.ps1: AI-powered daily intelligence report
-- setup-all-tasks.ps1: unified manager for all scheduled tasks
-- Register 3 tasks: SiteMonitor(30min), DailyIntelligence(06:00), DailyOptimize(07:30)
-- Fix PowerShell reserved variable conflicts ($Host, $HOME, $site)
-- Fix batch file encoding (UTF-8 BOM vs no-BOM for cmd.exe)
-- Update baselines.json and CI BOM checklist

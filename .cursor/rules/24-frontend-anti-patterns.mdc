@@ -1,0 +1,164 @@
+---
+description: "前端设计反模式 — 识别并修复 AI 生成代码中的 12 类常见设计缺陷"
+globs: ["src/**/*.tsx", "src/**/*.ts", "**/*.html", "app/**/*.tsx"]
+---
+
+# 前端设计反模式 — AI UI 质量审查清单
+
+> 来源：[Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) · redesign-skill
+> 适用：所有 AI 生成或修改的前端代码审查
+
+## 审查流程
+
+```
+接收 AI 生成的 UI 代码 → 按本清单逐类审查 → 发现任意反模式 → 标记并修复
+```
+
+---
+
+## 1. 排版 Typography
+
+**反模式（立即修复）：**
+- 字体：`Inter` / `Roboto` / `Arial` / `Open Sans` / `Helvetica` → 替换为有特色的字体
+- 仅用 Regular(400) + Bold(700) → 引入 Medium(500) / SemiBold(600) 层次
+- 正文字号过宽（>80字/行）→ 限制 `max-width: 65ch`
+- 标题缺乏存在感 → 增大字号、收紧字间距 `letter-spacing: -0.02em`、降低行高
+- 缺少 `text-wrap: balance` → 消除孤立行
+
+**推荐字体组合：**
+- 通用感：Geist / Outfit / Cabinet Grotesk / Satoshi
+- 编辑感：Newsreader / Playfair Display / Lyon Text + SF Pro / Geist Sans
+
+---
+
+## 2. 颜色与表面 Color & Surfaces
+
+**反模式（立即修复）：**
+- 纯 `#000` 或纯 `#FFF` 背景 → 用 off-black `#0a0a0a` / warm `#F7F6F3`
+- 饱和度过高的 accent 色（>80% saturation）→ 降低饱和度
+- 紫/蓝色 "AI gradient" → 替换为中性底色 + 单一 accent
+- 纯黑 `box-shadow` → 改为背景色 tint 的阴影
+- 平坦渐变（45° linear-gradient）→ radial / mesh / noise overlay
+- 混用暖灰 + 冷灰 → 统一灰色系色调
+- 深色 section 突然插入浅色页面 → 保持背景色调一致，或用同色系深浅切换
+
+---
+
+## 3. 布局 Layout
+
+**反模式（立即修复）：**
+- 三列等宽卡片 → 替换为 2 列 zig-zag / masonry / horizontal scroll
+- 所有元素居中对称 → 打破对称：offset margin / 左对齐标题 + 居中内容
+- `height: 100vh` → `min-height: 100dvh`（iOS Safari bug）
+- 无 max-width 容器 → 约束 `max-width: 1200-1440px`
+- flexbox 等高强制 → 允许高度变化或使用 masonry
+- 统一 border-radius → 内部元素紧、容器松
+- 无层叠/负 margin → 用负间距创造层叠感
+- 上下 padding 完全相同 → 底部 padding 略大（光学对齐）
+- 缺少留白 → 双倍间距，让设计呼吸
+
+**移动端强制规则：**
+- 任何不对称布局 → 降级为单列 `w-full px-4 py-8`
+- 所有 `col-span` → 强制 `col-span-1`
+
+---
+
+## 4. 交互状态 Interactivity
+
+**反模式（立即修复）：**
+- 按钮无 hover 状态 → 添加 `background shift` / `scale(1.02)` / `translate`
+- 无 active/pressed 反馈 → 添加 `scale(0.98)` / `translateY(1px)`
+- 零时长过渡 → 统一 `transition: 200-300ms`
+- 无 focus ring → 确保键盘可访问性焦点指示器
+- 通用 loading spinner → 替换为骨架屏（匹配布局形状）
+- 无 empty state → 设计 "getting started" 视图
+- 无 error state → 内联错误消息，禁止 `window.alert()`
+- 死链 `#` → 链接到真实目的地或视觉禁用
+- 锚点跳转无平滑滚动 → `scroll-behavior: smooth`
+
+---
+
+## 5. 内容 Content
+
+**反模式（立即修复）：**
+- 通用占位名："John Doe" / "Acme Corp" / "Lorem Ipsum" → 写真实上下文的名称
+- 整数占位数据：`99.99%` / `$100.00` → 自然的真实感数据 `47.2%` / `$99.00`
+- AI 文案模板词：Elevate / Seamless / Unleash / Next-Gen / Game-changer / Delve → 写平实具体的语言
+- 成功消息有感叹号 → 自信不喧闹，去掉感叹号
+- "Oops!" 错误消息 → 直接："连接失败，请重试"
+- 所有标题 Title Case → 改为 Sentence case
+- 所有 blog 日期相同 → 随机化日期
+- 多用户用同一头像 → 每位用户用不同头像
+
+---
+
+## 6. 图标 Iconography
+
+**反模式（立即修复）：**
+- 纯 Lucide / Feather icons → 替换为 Phosphor / Radix UI / 自定义图标集
+- 火箭图标代表 "Launch" / 盾牌代表 "Security" → 用 bolt / fingerprint / spark / vault 等
+- 图标 stroke width 不一致 → 统一所有图标 stroke 粗细
+- 缺少 favicon → 始终包含品牌 favicon
+- 库存"多样化团队"照片 → 真实照片或一致的插画风格
+
+---
+
+## 7. 代码质量 Code Quality
+
+**反模式（立即修复）：**
+- `div` 汤 → 用语义化 HTML：`<nav>` `<main>` `<article>` `<section>` `<button>`
+- 内联 style + CSS class 混用 → 全部移入项目样式系统
+- 硬编码像素宽度 → 用相对单位 `%` `rem` `em` `max-width`
+- 图片无 alt 或 `alt=""` → 写描述性 alt 文本
+- 任意 z-index `9999` → 在 theme/variables 中建立清晰 z-index 层级
+- 注释掉的死代码 → 交付前删除所有调试产物
+- import 幻觉 → 检查每个 import 是否真实存在于 `package.json`
+
+---
+
+## 8. 战略遗漏 Strategic Omissions
+
+**AI 最容易忘记的元素：**
+- 无法律链接（隐私政策/服务条款）→ footer 补充
+- 无 "返回" 导航 → 每个页面必须有回退路径
+- 无自定义 404 页面 → 设计有帮助的品牌化 404
+- 无表单验证 → 添加 client-side 验证
+- 无 "skip to content" 链接 → 为键盘用户添加
+- 无 cookie consent（若需要）→ 添加合规 banner
+
+---
+
+## 9. 动画 Motion（补充规则）
+
+> 详细内容见 `22-animations.mdc`
+
+**快速检查：**
+- 动画使用 `top` / `left` / `width` / `height` → 改为 `transform` + `opacity`
+- 零时长或 `linear` 过渡 → 改为 `cubic-bezier(0.32,0.72,0,1)` 等自然曲线
+- 所有元素同时入场 → 改为 staggerd reveal（延迟 `delay-100` / `delay-200`）
+
+---
+
+## 修复优先级（最大效果/最小风险）
+
+| 顺序 | 动作 | 效果 |
+|:---:|------|------|
+| 1 | 字体替换 | 即时最大改善 |
+| 2 | 颜色清理 | 去除冲突/过饱和色 |
+| 3 | Hover / Active 状态 | 让界面有生命感 |
+| 4 | 布局和间距 | 正确 grid / max-width / 统一 padding |
+| 5 | 替换通用组件 | 替换模板化组件 |
+| 6 | 添加 loading / empty / error states | 让产品感觉完整 |
+| 7 | 排版比例精调 | 最后的 premium 打磨 |
+
+---
+
+## 三种设计风格参考
+
+| 风格 | 特点 | 适用场景 |
+|------|------|---------|
+| **Soft Structuralism** | 柔和对比、留白、ambient shadows | 消费 / 健康 / 作品集 |
+| **Editorial Luxury** | 暖米色 `#FDFBF7`、变量衬线、粗体标题、film grain | 生活 / 房产 / 代理 |
+| **Premium Utilitarian** | 暖单色、1px `#EAEAEA` 边框、无阴影、editorial 排版 | Notion / Linear / 工作台 |
+
+> 具体参数（字体/Cubic-Bezier 值/组件结构）见 `22-animations.mdc` 和 `18-environment.mdc`

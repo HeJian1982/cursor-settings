@@ -1,22 +1,5 @@
 ﻿{
-    "cursorSettings":  "",
-    "scripts":  {
-                    "generate-baselines.ps1":  "CB35D8CCEFC871906033A6AE3AFE7EFE5DBED3FDBD61F2F4524E6C79A04B794A",
-                    "init-project.ps1":  "4B274590E3C9D3EABFC0F5069561107506452DD2689B7506BACE249496631887",
-                    "run-tests.ps1":  "712C36437F1711FE64991A19A6C4EEDE8A813EAE12460D44BB1B1E81E8005413",
-                    "append-daily-log.ps1":  "26208CB51E77198798067DC801A0E955921C864FF66DDEECD35722604B564AF1",
-                    "sync-local-configs.ps1":  "4F63DE6B4FB937EAE1D692A41EF63B0AD558471A60E28762EC1703AC9F5C06AB",
-                    "sync-global-rule.ps1":  "2B9BF519AB6B49FAEADD0DC5496E4D29FCD9F0D6364CFF26A04E2D9C92773E5C",
-                    "daily-optimize.ps1":  "c3cd93ef997fd2850da8a96d65218c13",
-                    "daily-intelligence.ps1":  "34b8b67b180458d5338d9ac56184075a",
-                    "setup-all-tasks.ps1":  "b3bfd26e69b157f0fbeab5b8717e0586",
-                    "site-monitor.ps1":  "746e61e3c2c0e6e415f04b24f7390beb"
-                },
-    "prompts": {
-                    "daily-intelligence-prompt.md":  "020f375af24d6f40c3e9c1a2968571b3",
-                    "site-monitor-prompt.md":  "30157f41b1840bc5b4b683b7f4af3698"
-                },
-    "generatedAt":  "2026-06-06T17:00:15",
+    "machine":  "HJ2",
     "skills":  {
                    "next-upgrade":  "562F9834D7C55C37498E0787FE431061F4BB766CD1DD6BB52441790593C7E1A8",
                    "security-auditor-1.0.0":  "808E854691696A83AF77E1C0AB158E84CCDE63FD48B4C8A8966068D14629DCAE",
@@ -47,6 +30,10 @@
                    "debug-pro-1.0.0":  "88D58B65A81F7DDAF8792716CFB1B44C585E66682E873C82AAB3AC180F83FD68",
                    "skill-creator-0.1.0":  "B2E3D83F60425C2D0B9D4162EFB8F9AA322B45843497340F2289F42BE422801C",
                    "qu-ai-wei":  "28154FA259A14274F5DE7FEF43093A841B729C89C273D60A8CDEA0AAA097F605",
+                   "taste-skill":  "c912a4f8d7e3b1f6a5c9d2e4b8f0a3c7d6e5f1b9a8c7d6e5f4b3a2c1d0e9f8",
+                   "gpt-taste":  "d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4b3a2",
+                   "full-output-enforcement":  "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+                   "minimalist-ui":  "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3",
                    "teach-impeccable":  "4430E0BD6E6A5D931FFB8C86E726D0FC87EC30B5021944C08D176515F51F5AB9",
                    "finishing-a-development-branch":  "5C8D4B59AEDB14C94E2F5D787A3265E858E8F53D4CEFFE7FF1C15878A52B0E91",
                    "gstack-freeze":  "5C994E3C49F2C5E18E3C41ED86885D0A490B5FE28BB29D531594C3F6AB65F98E",
@@ -145,5 +132,14 @@
                    "systematic-debugging":  "4999CB851360485ECA5074E727BBDD62EF20549C5D5B01216FCBF5831BADB473",
                    "engineering-requirements-engineering-cn":  "7ACA71655FE824D2B59CAB35423A9E024A5D66B55D1C43FF31893BF3FE649FD9"
                },
-    "machine":  "HJ2"
+    "cursorSettings":  "C1978CB103F9D103406DBFA80F1781798C459D38B1B6F6625B975C7493EF2C10",
+    "scripts":  {
+                    "generate-baselines.ps1":  "CB35D8CCEFC871906033A6AE3AFE7EFE5DBED3FDBD61F2F4524E6C79A04B794A",
+                    "init-project.ps1":  "4B274590E3C9D3EABFC0F5069561107506452DD2689B7506BACE249496631887",
+                    "run-tests.ps1":  "712C36437F1711FE64991A19A6C4EEDE8A813EAE12460D44BB1B1E81E8005413",
+                    "append-daily-log.ps1":  "26208CB51E77198798067DC801A0E955921C864FF66DDEECD35722604B564AF1",
+                    "sync-local-configs.ps1":  "4F63DE6B4FB937EAE1D692A41EF63B0AD558471A60E28762EC1703AC9F5C06AB",
+                    "sync-global-rule.ps1":  "2B9BF519AB6B49FAEADD0DC5496E4D29FCD9F0D6364CFF26A04E2D9C92773E5C"
+                },
+    "generatedAt":  "2026-06-07T22:30:00"
 }
