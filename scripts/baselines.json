@@ -141,5 +141,21 @@
                     "sync-local-configs.ps1":  "4F63DE6B4FB937EAE1D692A41EF63B0AD558471A60E28762EC1703AC9F5C06AB",
                     "sync-global-rule.ps1":  "2B9BF519AB6B49FAEADD0DC5496E4D29FCD9F0D6364CFF26A04E2D9C92773E5C"
                 },
-    "generatedAt":  "2026-06-07T22:30:00"
+    "scripts":  {
+                    "generate-baselines.ps1":  "CB35D8CCEFC871906033A6AE3AFE7EFE5DBED3FDBD61F2F4524E6C79A04B794A",
+                    "init-project.ps1":  "4B274590E3C9D3EABFC0F5069561107506452DD2689B7506BACE249496631887",
+                    "run-tests.ps1":  "712C36437F1711FE64991A19A6C4EEDE8A813EAE12460D44BB1B1E81E8005413",
+                    "append-daily-log.ps1":  "26208CB51E77198798067DC801A0E955921C864FF66DDEECD35722604B564AF1",
+                    "sync-local-configs.ps1":  "4F63DE6B4FB937EAE1D692A41EF63B0AD558471A60E28762EC1703AC9F5C06AB",
+                    "sync-global-rule.ps1":  "2B9BF519AB6B49FAEADD0DC5496E4D29FCD9F0D6364CFF26A04E2D9C92773E5C",
+                    "trending-inspect.ps1":  "D41D8CD98F00B204E9800998ECF8427E",  <!-- placeholder, update after commit -->
+                    "setup-all-tasks.ps1":  "D41D8CD98F00B204E9800998ECF8427E"  <!-- placeholder, update after commit -->
+                },
+    "cursorRules": {
+                    "24-frontend-anti-patterns.mdc": "D41D8CD98F00B204E9800998ECF8427E",
+                    "25-ai-code-guard.mdc": "D41D8CD98F00B204E9800998ECF8427E",
+                    "26-test-guard.mdc": "D41D8CD98F00B204E9800998ECF8427E",
+                    "27-docs-guard.mdc": "D41D8CD98F00B204E9800998ECF8427E"
+                },
+    "generatedAt":  "2026-06-08T07:20:00"
 }
