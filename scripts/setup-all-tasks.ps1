@@ -9,6 +9,7 @@
   2. HJ-Cursor-SiteMonitor       — 每 30 分钟，网站健康巡检
   3. HJ-Cursor-DailyIntelligence  — 每日 06:00，情报日报
   4. HJ-Cursor-TrendingInspect — 每日 08:00，GitHub+GitCode 热榜巡检
+  5. HJ-Cursor-SkillHealth    — 每周日 09:00，Skill 健康检查
 
   使用 schtasks.exe + chcp 65001 避免编码问题。
 
@@ -32,7 +33,7 @@ param(
     [ValidateSet('Register', 'Unregister', 'Show', 'Test', 'TestAll')]
     [string]$Action = 'Show',
 
-    [ValidateSet('Optimize', 'Monitor', 'Intelligence', 'Trending', 'All')]
+    [ValidateSet('Optimize', 'Monitor', 'Intelligence', 'Trending', 'SkillHealth', 'All')]
     [string]$Task = 'All',
 
     [string]$UserContext = ""
@@ -76,6 +77,14 @@ $tasks = [ordered]@{
         Time        = "08:00"
         Interval    = 0
     }
+    SkillHealth = @{
+        Name        = "HJ-Cursor-SkillHealth"
+        Desc        = "Weekly skill health check: broken links, missing files, disk usage"
+        Script      = Join-Path $RepoRoot "scripts\skill-health-check.ps1"
+        Schedule    = "weekly"
+        Time        = "09:00"
+        Interval    = 0
+    }
 }
 
 $targetKeys = if ($Task -eq 'All') { $tasks.Keys } else { @($Task) }
@@ -103,6 +112,8 @@ schtasks /Delete /TN "$($t.Name)" /F
     # Trigger
     if ($t.Schedule -eq "daily") {
         $triggerArg = "/SC DAILY /ST $($t.Time)"
+    } elseif ($t.Schedule -eq "weekly") {
+        $triggerArg = "/SC WEEKLY /D SUN /ST $($t.Time)"
     } else {
         $triggerArg = "/SC MINUTE /MO $($t.Interval)"
     }
@@ -159,7 +170,7 @@ switch ($Action) {
             $detail = if ($parts[2]) { $parts[2] } else { "" }
 
             if ($status -eq "OK") {
-                $emoji = @{ Optimize = "OPTI"; Monitor = "MON"; Intelligence = "INTL"; Trending = "TREND" }[$key]
+                $emoji = @{ Optimize = "OPTI"; Monitor = "MON"; Intelligence = "INTL"; Trending = "TREND"; SkillHealth = "HLTH" }[$key]
                 Write-Host "$emoji OK | $name | $detail" -ForegroundColor Green
             } elseif ($status -eq "SKIP_USER") {
                 Write-Host "SKIP | $name | requires password: $detail" -ForegroundColor Yellow
