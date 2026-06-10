@@ -37,9 +37,18 @@ def get_bearer_token():
     log("Getting bearer token from server...", "STEP")
 
     # Step 1: SSH read secret
+    # Use Python subprocess to SSH — avoids PowerShell process overhead and proxy issues
+    import subprocess
+    env = dict(os.environ)
+    for k in list(env.keys()):
+        if "proxy" in k.lower():
+            del env[k]
     proc = subprocess.run(
-        ["ssh", "hj1982", "grep ADMIN_TOKEN_SECRET /etc/hj-secrets"],
-        capture_output=True, text=True, encoding="utf-8", errors="replace"
+        ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=no",
+         "-o", "ConnectTimeout=10", "-o", "ProxyCommand=none",
+         "hj1982", "grep ADMIN_TOKEN_SECRET /etc/hj-secrets"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=20, env=env, stdin=subprocess.DEVNULL
     )
     secret = None
     for line in proc.stdout.split("\n"):
@@ -65,10 +74,16 @@ def get_sessions(since=None):
     if since:
         cmd.append(since)
     log(f"Running parser: {' '.join(cmd[-2:])}", "STEP")
+    penv = dict(os.environ)
+    for k in list(penv.keys()):
+        if "proxy" in k.lower():
+            del penv[k]
+    penv["PYTHONIOENCODING"] = "utf-8"
+    penv["PYTHONUTF8"] = "1"
     proc = subprocess.run(
         cmd,
         capture_output=True, text=True, encoding="utf-8", errors="replace",
-        env={**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
+        env=penv, stdin=subprocess.DEVNULL
     )
     if proc.stderr.strip():
         for line in proc.stderr.strip().split("\n")[:3]:

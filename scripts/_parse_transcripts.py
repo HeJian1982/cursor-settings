@@ -147,7 +147,11 @@ def process_session(session_uuid, session_dir, since_date):
 
     if since_date and first_ts:
         try:
-            since_dt = datetime.strptime(since_date, '%Y-%m-%d')
+            # Accept both "2026-06-11" and "2026-06-11T07:17:00"
+            if 'T' in since_date:
+                since_dt = datetime.strptime(since_date.split('T')[0], '%Y-%m-%d')
+            else:
+                since_dt = datetime.strptime(since_date, '%Y-%m-%d')
             if first_ts.date() < since_dt.date(): return None
         except: pass
 
