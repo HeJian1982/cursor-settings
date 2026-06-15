@@ -1,0 +1,7 @@
+{
+    "name": "echo",
+    "description": "回显用户的输入（测试用）",
+    "keywords": ["echo", "回显", "复读", "说一遍"],
+    "kind": "literal",
+    "response": "你说了: {0}"
+}

@@ -1,0 +1,48 @@
+{
+    "port": 7799,
+    "api_key": "",
+    "default_provider": "echo",
+    "system_prompt": "你是 hj-gateway — 何健的个人本地 AI 助手网关。集合 6 个开源项目特长：openclaw 多渠道 / claude-code-router 多 provider / hermes-agent 自进化 skill / openhuman 进程内 tokio / ai-api-integration OpenAI 兼容 / cursor2api 协议转换。回答简洁、有用，必要时调用本地 skill。",
+    "providers": {
+        "echo": {
+            "kind": "echo",
+            "description": "纯本地回显，零依赖，永远可用（用于 sanity check）"
+        },
+        "openai_compatible": {
+            "kind": "openai_compatible",
+            "base_url": "https://api.openai.com/v1",
+            "api_key": "${OPENAI_API_KEY}",
+            "model": "gpt-4o-mini",
+            "max_tokens": 1024,
+            "temperature": 0.7,
+            "timeout": 60,
+            "chat_path": "/chat/completions"
+        },
+        "deepseek": {
+            "kind": "openai_compatible",
+            "base_url": "https://api.deepseek.com",
+            "api_key": "${DEEPSEEK_API_KEY}",
+            "model": "deepseek-chat",
+            "max_tokens": 2048,
+            "temperature": 0.7,
+            "timeout": 60,
+            "chat_path": "/v1/chat/completions"
+        },
+        "glm": {
+            "kind": "openai_compatible",
+            "base_url": "https://open.bigmodel.cn/api/paas/v4",
+            "api_key": "${GLM_API_KEY}",
+            "model": "glm-4-flash",
+            "max_tokens": 1024,
+            "temperature": 0.7,
+            "timeout": 60,
+            "chat_path": "/chat/completions"
+        },
+        "ollama_local": {
+            "kind": "ollama",
+            "base_url": "http://127.0.0.1:11434",
+            "model": "qwen2.5:7b",
+            "timeout": 120
+        }
+    }
+}

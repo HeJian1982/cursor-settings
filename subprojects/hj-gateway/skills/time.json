@@ -1,0 +1,7 @@
+{
+    "name": "time",
+    "description": "告诉当前时间（含时区）",
+    "keywords": ["几点了", "现在时间", "current time", "what time", "现在几点"],
+    "kind": "shell",
+    "command": "powershell -NoProfile -Command \"Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'\""
+}

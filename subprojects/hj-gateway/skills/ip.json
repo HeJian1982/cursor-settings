@@ -1,0 +1,7 @@
+{
+    "name": "ip",
+    "description": "查询公网 IP",
+    "keywords": ["公网ip", "外网ip", "public ip", "我的ip", "my ip", "外网地址"],
+    "kind": "http",
+    "url": "https://api.ipify.org"
+}

@@ -1,0 +1,7 @@
+{
+    "name": "git_status",
+    "description": "显示当前 e:\\HJ\\cursor git 状态",
+    "keywords": ["git 状态", "git status", "仓库状态", "改动"],
+    "kind": "shell",
+    "command": "git -C e:\\HJ\\cursor status --short"
+}

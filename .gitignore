@@ -2,7 +2,9 @@
 *~
 .DS_Store
 .env*
-!*.env.template
+!.env.example
+!.env.template
+subprojects/hj-gateway/.env*
 .git/
 node_modules/
 .next/
@@ -24,6 +26,8 @@ cursor-transcripts/
 memory/
 logs/
 scripts/.bg-sync-marker.txt
+subprojects/hj-gateway/state/
+subprojects/hj-gateway/logs/
 
 # External repos cloned for research — not tracked (see subprojects/repos-from-external/README.md)
 subprojects/repos-from-external/

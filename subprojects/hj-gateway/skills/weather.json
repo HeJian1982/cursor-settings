@@ -1,0 +1,7 @@
+{
+    "name": "weather",
+    "description": "查北京天气（wttr.in）",
+    "keywords": ["天气", "北京天气", "weather", "今天天气"],
+    "kind": "http",
+    "url": "https://wttr.in/Beijing?format=3"
+}
