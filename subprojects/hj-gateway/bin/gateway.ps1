@@ -301,21 +301,24 @@ function Start-Repl {
     Write-Host 'hj-gateway REPL - Ctrl+C to quit, /q to exit' -ForegroundColor Cyan
     Write-Host 'commands: /skills /memory /providers /status /help' -ForegroundColor Cyan
     Write-Host ''
-    $running = $true
-    while ($running) {
-        try {
-            Write-Host 'you> ' -NoNewline -ForegroundColor Green
-            $line = [Console]::ReadLine()
-        } catch {
-            break
-        }
-        if ($null -eq $line) { break }
+
+    # Detect pipe-mode vs interactive mode
+    $isPipe = [Console]::IsInputRedirected
+    $usePipe = $false
+    if ($isPipe) {
+        $usePipe = $true
+        Write-Host '[repl] stdin is a pipe; will consume lines until EOF' -ForegroundColor DarkGray
+    }
+
+    # 命令分发（被 Read-Command 调用）
+    $script:HandleCommand = {
+        param([string]$line)
         $line = $line.Trim()
-        if (-not $line) { continue }
+        if (-not $line) { return $true }  # 静默吞空行，继续循环
         switch ($line) {
-            '/q' { Write-Host 'bye.' -ForegroundColor Cyan; $running = $false; continue }
-            '/quit' { Write-Host 'bye.' -ForegroundColor Cyan; $running = $false; continue }
-            '/exit' { Write-Host 'bye.' -ForegroundColor Cyan; $running = $false; continue }
+            '/q' { Write-Host 'bye.' -ForegroundColor Cyan; return $false }
+            '/quit' { Write-Host 'bye.' -ForegroundColor Cyan; return $false }
+            '/exit' { Write-Host 'bye.' -ForegroundColor Cyan; return $false }
             '/help' {
                 Write-Host '  /skills       list skills' -ForegroundColor Yellow
                 Write-Host '  /memory       recent memory' -ForegroundColor Yellow
@@ -323,50 +326,108 @@ function Start-Repl {
                 Write-Host '  /status       gateway status' -ForegroundColor Yellow
                 Write-Host '  /q            quit' -ForegroundColor Yellow
                 Write-Host '  <text>        send to gateway' -ForegroundColor Yellow
-                continue
+                return $true
             }
             '/skills' {
-                $uri = 'http://127.0.0.1:' + $Port + '/v1/skills'
-                $resp = Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 5
-                foreach ($sk in $resp.skills) {
-                    $entry = '  {0,-15}  {1}' -f $sk.name, $sk.description
-                    Write-Host $entry
+                try {
+                    $uri = 'http://127.0.0.1:' + $Port + '/v1/skills'
+                    $resp = Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 5
+                    foreach ($sk in $resp.skills) {
+                        $entry = '  {0,-15}  {1}' -f $sk.name, $sk.description
+                        Write-Host $entry
+                    }
+                } catch {
+                    Write-Host "[repl] /skills failed: $($_.Exception.Message)" -ForegroundColor Red
                 }
-                continue
+                return $true
             }
             '/memory' {
-                $uri = 'http://127.0.0.1:' + $Port + '/v1/memory?limit=10'
-                $resp = Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 5
-                foreach ($item in $resp.items) {
-                    $role = $item.role
-                    $len = [Math]::Min(120, $item.content.Length)
-                    $preview = $item.content.Substring(0, $len)
-                    $line2 = '[' + $role + '] ' + $preview
-                    $color = 'Cyan'
-                    if ($role -eq 'user') { $color = 'Green' }
-                    Write-Host $line2 -ForegroundColor $color
+                try {
+                    $uri = 'http://127.0.0.1:' + $Port + '/v1/memory?limit=10'
+                    $resp = Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 5
+                    foreach ($item in $resp.items) {
+                        $role = $item.role
+                        $len = [Math]::Min(120, $item.content.Length)
+                        $preview = $item.content.Substring(0, $len)
+                        $line2 = '[' + $role + '] ' + $preview
+                        $color = 'Cyan'
+                        if ($role -eq 'user') { $color = 'Green' }
+                        Write-Host $line2 -ForegroundColor $color
+                    }
+                } catch {
+                    Write-Host "[repl] /memory failed: $($_.Exception.Message)" -ForegroundColor Red
                 }
-                continue
+                return $true
             }
             '/providers' {
-                $uri = 'http://127.0.0.1:' + $Port + '/v1/providers'
-                $resp = Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 5
-                foreach ($p in $resp.providers.PSObject.Properties) {
-                    $entry = '  {0,-22}  {1}' -f $p.Name, $p.Value.description
-                    Write-Host $entry -ForegroundColor Yellow
+                try {
+                    $uri = 'http://127.0.0.1:' + $Port + '/v1/providers'
+                    $resp = Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 5
+                    foreach ($p in $resp.providers.PSObject.Properties) {
+                        $entry = '  {0,-22}  {1}' -f $p.Name, $p.Value.description
+                        Write-Host $entry -ForegroundColor Yellow
+                    }
+                } catch {
+                    Write-Host "[repl] /providers failed: $($_.Exception.Message)" -ForegroundColor Red
                 }
-                continue
+                return $true
             }
             '/status' {
                 Show-Status
-                continue
+                return $true
             }
             default {
-                Send-Chat -Message $line
-                Write-Host ''
+                try {
+                    Send-Chat -Message $line
+                    Write-Host ''
+                } catch {
+                    Write-Host "[repl] chat failed: $($_.Exception.Message)" -ForegroundColor Red
+                }
+                return $true
             }
+    }
+
+    $running = $true
+    if ($usePipe) {
+        # Pipe mode: read line-by-line from [Console]::In. Break on EOF.
+        # Do NOT use ReadLine() (it may throw IOException when the parent
+        # closes the pipe, e.g. SIGPIPE in a `... | out-file` chain).
+        $reader = [Console]::In
+        while ($running) {
+            $line = $null
+            try {
+                $line = $reader.ReadLine()
+            } catch [System.IO.IOException] {
+                # parent closed the pipe (SIGPIPE equivalent)
+                break
+            } catch {
+                # any other read error: bail
+                break
+            }
+            if ($null -eq $line) { break }  # true EOF
+            $keepGoing = & $script:HandleCommand $line
+            if (-not $keepGoing) { $running = $false }
+        }
+    } else {
+        # Interactive mode: prompt + ReadLine(); user typing at a real TTY
+        while ($running) {
+            $line = $null
+            try {
+                Write-Host 'you> ' -NoNewline -ForegroundColor Green
+                $line = [Console]::ReadLine()
+            } catch [System.IO.IOException] {
+                break
+            } catch {
+                break
+            }
+            if ($null -eq $line) { break }  # Ctrl+Z / EOF
+            $keepGoing = & $script:HandleCommand $line
+            if (-not $keepGoing) { $running = $false }
         }
     }
+
+    # Explicit exit 0 to override PowerShell piping $LASTEXITCODE to -1
+    exit 0
 }
 
 
@@ -387,7 +448,13 @@ switch ($Command) {
         }
         Send-Chat -Message $msg
     }
-    'repl'            { Start-Repl }
+    'repl'            {
+        trap {
+            Write-Host "[repl] fatal: $($_.Exception.Message)" -ForegroundColor Red
+            exit 1
+        }
+        Start-Repl
+    }
     'skill'           { Invoke-Skill -Args2 $RestArgs }
     'install-autostart'   { Install-AutoStart }
     'uninstall-autostart' { Uninstall-AutoStart }
