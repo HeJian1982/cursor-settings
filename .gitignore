@@ -24,3 +24,6 @@ cursor-transcripts/
 memory/
 logs/
 scripts/.bg-sync-marker.txt
+
+# External repos cloned for research — not tracked (see subprojects/repos-from-external/README.md)
+subprojects/repos-from-external/
