@@ -1,0 +1,7 @@
+{
+    "name": "hash",
+    "description": "计算文本/字符串的 SHA256 哈希（参数：原文）",
+    "keywords": ["哈希", "sha256", "hash", "校验", "checksum"],
+    "kind": "shell",
+    "command": "powershell -NoProfile -Command \"$s='{0}'; if ($s) { [BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($s))) -replace '-','' } else { 'usage: hash <text>' }\""
+}

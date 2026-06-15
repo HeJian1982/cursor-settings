@@ -1,0 +1,7 @@
+{
+    "name": "sysinfo",
+    "description": "本机硬件/OS 概览（CPU / 内存 / OS / 机器名）",
+    "keywords": ["系统信息", "本机配置", "硬件", "sysinfo", "system info", "本机信息", "机器配置"],
+    "kind": "shell",
+    "command": "powershell -NoProfile -Command \"Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer,Model,TotalPhysicalMemory | Format-List | Out-String; Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,OSArchitecture,BuildNumber | Format-List | Out-String; (Get-CimInstance Win32_Processor).Name\""
+}

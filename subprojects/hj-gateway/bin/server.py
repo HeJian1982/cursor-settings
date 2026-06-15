@@ -65,17 +65,36 @@ class SkillStore:
         self.dir = root / "skills"
         self.dir.mkdir(parents=True, exist_ok=True)
         self.skills = {}
+        self._mtimes = {}
         self._load()
 
     def _load(self):
         for p in self.dir.glob("*.json"):
             try:
-                with open(p, encoding="utf-8") as f:
+                mt = p.stat().st_mtime
+                with open(p, encoding="utf-8-sig") as f:
                     s = json.load(f)
                 if "name" in s:
                     self.skills[s["name"]] = s
+                    self._mtimes[str(p)] = mt
             except Exception as e:
                 LOG.warning("skill load failed %s: %s", p.name, e)
+
+    def maybe_reload(self):
+        """热加载：扫描 skills/*.json 是否有 mtime 变化"""
+        current = {str(p): p.stat().st_mtime for p in self.dir.glob("*.json")}
+        if current == self._mtimes:
+            return
+        # 重新全量加载
+        old_names = set(self.skills.keys())
+        self.skills = {}
+        self._mtimes = {}
+        self._load()
+        new_names = set(self.skills.keys())
+        added = new_names - old_names
+        removed = old_names - new_names
+        if added or removed:
+            LOG.info("skills hot-reload: +%s -%s", added, removed)
 
     def list(self):
         return [{"name": s["name"], "description": s.get("description", "")}
@@ -137,6 +156,11 @@ class Memory:
                 "SELECT ts,role,content FROM conversations WHERE content LIKE ? ORDER BY id DESC LIMIT ?",
                 (f"%{q}%", n))
             return [{"ts": r[0], "role": r[1], "content": r[2]} for r in cur.fetchall()]
+
+    def clear(self):
+        with self.lock:
+            self.db.execute("DELETE FROM conversations")
+            self.db.commit()
 
 
 # ---------------- provider router (claude-code-router 简化) ----------------
@@ -222,29 +246,40 @@ class ProviderRouter:
 
 
 # ---------------- skill runner ----------------
+def _render(template: str, args: list) -> str:
+    """安全渲染: 支持 {{arg0}} {{arg1}} {{argN}} 或 {{arg0..argN}} 区间
+    用双花括号避开 PowerShell 单花括号语法
+    """
+    import re as _re
+    out = template
+    out = out.replace("{{args}}", " ".join(args))
+    out = out.replace("{{args_csv}}", ",".join(args))
+    for i, a in enumerate(args):
+        out = out.replace(f"{{{{arg{i}}}}}", a)
+    return out
+
+
 def run_skill(skill: dict, args: list) -> str:
     kind = skill.get("kind", "literal")
     if kind == "literal":
-        return skill.get("response", "").format(*args, **{
-            f"arg{i}": a for i, a in enumerate(args)
-        })
+        return _render(skill.get("response", ""), args)
     if kind == "shell":
-        cmd = skill.get("command", "").format(*args, **{
-            f"arg{i}": a for i, a in enumerate(args)
-        })
+        cmd = _render(skill.get("command", ""), args)
         try:
             import subprocess
-            r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
-            out = r.stdout.strip() if r.returncode == 0 else r.stderr.strip()
+            r = subprocess.run(
+                cmd, shell=True, capture_output=True,
+                text=True, encoding="utf-8", errors="replace",
+                timeout=skill.get("timeout", 15)
+            )
+            out = r.stdout.strip() if r.returncode == 0 else (r.stderr.strip() or f"[exit {r.returncode}]")
             return out or "(no output)"
         except subprocess.TimeoutExpired:
-            return "[timeout after 15s]"
+            return f"[timeout after {skill.get('timeout', 15)}s]"
         except Exception as e:
             return f"[shell error] {e}"
     if kind == "http":
-        url = skill.get("url", "").format(*args, **{
-            f"arg{i}": a for i, a in enumerate(args)
-        })
+        url = _render(skill.get("url", ""), args)
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "hj-gateway/0.1"})
             with urllib.request.urlopen(req, timeout=8) as r:
@@ -265,14 +300,19 @@ class Gateway:
     def chat(self, message: str, provider: str = None) -> dict:
         provider = provider or self.cfg.default_provider
         self.memory.append("user", message)
+        # 每次 chat 检查 skill 是否有变动（热加载）
+        self.skills.maybe_reload()
         # 找匹配的 skill
         matched = self.skills.match(message)
         if matched:
             top = self.skills.get(matched[0])
             if top and top.get("kind") in ("literal", "shell", "http"):
-                # 自动跑 skill（仅当 message 跟 skill 关键词强相关）
-                args = re.findall(r"\S+", message)
-                out = run_skill(top, args[1:])  # 去掉首词
+                # 仅当命令模板需要参数（{{argN}} 或 {{args}}）才剥首词
+                tmpl = top.get("command") or top.get("response") or top.get("url") or ""
+                needs_args = ("{{arg" in tmpl) or ("{{args}}" in tmpl) or ("{{args_csv}}" in tmpl)
+                tokens = re.findall(r"\S+", message)
+                args = tokens[1:] if (needs_args and len(tokens) > 1) else tokens
+                out = run_skill(top, args)
                 if out:
                     self.memory.append("assistant", out)
                     return {"reply": out, "skill": top["name"], "provider": provider}
@@ -291,6 +331,20 @@ class Gateway:
             return {"error": f"skill not found: {name}"}
         out = run_skill(s, args)
         return {"output": out}
+
+    def memory_recent(self, n: int = 20) -> list:
+        rows = self.memory.recent(n)
+        return [{"role": r["role"], "content": r["content"], "ts": r["ts"]} for r in rows]
+
+    def providers(self) -> dict:
+        out = {}
+        for name, p in self.cfg.providers.items():
+            out[name] = {
+                "kind": p.get("kind", "?"),
+                "description": p.get("description", ""),
+                "model": p.get("model", ""),
+            }
+        return {"providers": out}
 
     def health(self) -> dict:
         return {
@@ -322,24 +376,48 @@ def make_handler(gw: Gateway, api_key: str):
             self.end_headers()
             self.wfile.write(data)
 
+        def _sse_event(self, event: str, data: dict):
+            try:
+                payload = f"event: {event}\n" + "data: " + json.dumps(data, ensure_ascii=False) + "\n\n"
+                self.wfile.write(payload.encode("utf-8"))
+                self.wfile.flush()
+            except Exception:
+                pass
+
         def do_GET(self):
             path = urllib.parse.urlsplit(self.path).path
+            q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             if path == "/health":
                 self._json(200, gw.health())
             elif path == "/v1/skills":
                 if not self._check_auth():
                     return self._json(401, {"error": "unauthorized"})
                 self._json(200, gw.skills_list())
-            elif path == "/v1/memory/recent":
+            elif path == "/v1/memory" or path == "/v1/memory/recent":
                 if not self._check_auth():
                     return self._json(401, {"error": "unauthorized"})
-                n = int(urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("n", ["20"])[0])
-                self._json(200, {"history": gw.memory.recent(n)})
+                n = int(q.get("n", q.get("limit", ["20"]))[0])
+                self._json(200, {"items": gw.memory_recent(n)})
+            elif path == "/v1/providers":
+                if not self._check_auth():
+                    return self._json(401, {"error": "unauthorized"})
+                self._json(200, gw.providers())
+            elif path == "/v1/memory/clear":
+                if not self._check_auth():
+                    return self._json(401, {"error": "unauthorized"})
+                gw.memory.clear()
+                self._json(200, {"ok": True})
             elif path == "/":
                 self._json(200, {
                     "service": SERVICE,
                     "version": VERSION,
-                    "endpoints": ["/health", "/v1/chat", "/v1/skills", "/v1/skills/run", "/v1/memory/recent"]
+                    "endpoints": [
+                        "/health",
+                        "/v1/chat", "/v1/chat/stream",
+                        "/v1/skills", "/v1/skills/run",
+                        "/v1/providers",
+                        "/v1/memory", "/v1/memory/clear"
+                    ]
                 })
             else:
                 self._json(404, {"error": "not found", "path": path})
@@ -366,6 +444,49 @@ def make_handler(gw: Gateway, api_key: str):
                 except Exception as e:
                     LOG.exception("chat error")
                     return self._json(500, {"error": f"{type(e).__name__}: {e}"})
+            elif path == "/v1/chat/stream":
+                LOG.info("chat-stream body=%s", raw[:300])
+                msg = (body.get("message") or body.get("messages", [{}])[-1].get("content") or "").strip()
+                if not msg:
+                    return self._json(400, {"error": "message required"})
+                provider = body.get("provider")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("X-Accel-Buffering", "no")
+                self.end_headers()
+                # 先发一个 start 事件
+                self._sse_event("start", {"ts": time.time()})
+                try:
+                    # 如果命中 skill，则发单条 done 事件
+                    matched = gw.skills.match(msg)
+                    if matched:
+                        top = gw.skills.get(matched[0])
+                        if top and top.get("kind") in ("literal", "shell", "http"):
+                            tmpl = top.get("command") or top.get("response") or top.get("url") or ""
+                            needs_args = ("{{arg" in tmpl) or ("{{args}}" in tmpl) or ("{{args_csv}}" in tmpl)
+                            tokens = re.findall(r"\S+", msg)
+                            args = tokens[1:] if (needs_args and len(tokens) > 1) else tokens
+                            # 流式分段
+                            out = run_skill(top, args)
+                            chunks = [out[i:i+8] for i in range(0, len(out), 8)] or [""]
+                            for ch in chunks:
+                                self._sse_event("token", {"delta": ch})
+                                time.sleep(0.02)
+                            self._sse_event("done", {"skill": top["name"], "full": out})
+                            return
+                    # 否则流式调 provider（按 8 字符分段伪流式）
+                    history = gw.memory.recent(20)[:-1]
+                    reply = gw.router.call(provider or gw.cfg.default_provider, gw.cfg.system_prompt, msg, history)
+                    gw.memory.append("assistant", reply)
+                    chunks = [reply[i:i+8] for i in range(0, len(reply), 8)] or [""]
+                    for ch in chunks:
+                        self._sse_event("token", {"delta": ch})
+                        time.sleep(0.02)
+                    self._sse_event("done", {"full": reply, "provider": provider or gw.cfg.default_provider})
+                except Exception as e:
+                    LOG.exception("stream chat error")
+                    self._sse_event("error", {"message": f"{type(e).__name__}: {e}"})
             elif path == "/v1/skills/run":
                 name = body.get("name", "")
                 args = body.get("args", [])

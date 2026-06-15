@@ -1,0 +1,7 @@
+{
+    "name": "git_log",
+    "description": "e:\\HJ\\cursor 最近 10 条 commit（oneline）",
+    "keywords": ["git log", "git 历史", "提交历史", "recent commits"],
+    "kind": "shell",
+    "command": "git -C e:\\HJ\\cursor log --oneline -10"
+}

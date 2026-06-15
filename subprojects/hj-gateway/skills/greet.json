@@ -1,0 +1,9 @@
+﻿{
+    "kind":  "literal",
+    "description":  "[璇存槑]",
+    "name":  "greet",
+    "response":  "[鍥炴樉鏂囨湰 ]",
+    "keywords":  [
+                     "greet"
+                 ]
+}

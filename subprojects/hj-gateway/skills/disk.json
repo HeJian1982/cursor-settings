@@ -1,0 +1,7 @@
+{
+    "name": "disk",
+    "description": "磁盘使用（各盘符可用空间）",
+    "keywords": ["磁盘", "硬盘", "空间", "disk", "disk usage", "df"],
+    "kind": "shell",
+    "command": "powershell -NoProfile -Command \"Get-Volume | Where-Object DriveLetter | Select-Object DriveLetter,@{N='SizeGB';E={[math]::Round($_.Size/1GB,1)}},@{N='FreeGB';E={[math]::Round($_.SizeRemaining/1GB,1)}},@{N='PctFree';E={[math]::Round(($_.SizeRemaining*100)/$_.Size,1)}} | Format-Table -AutoSize | Out-String\""
+}

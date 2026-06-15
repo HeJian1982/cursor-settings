@@ -1,0 +1,13 @@
+{
+  "name": "hj-gateway-chat",
+  "description": "Send a chat message to hj-gateway (prompts for message)",
+  "command": "powershell",
+  "args": [
+    "-NoProfile",
+    "-ExecutionPolicy", "Bypass",
+    "-File", "e:\\HJ\\cursor\\subprojects\\hj-gateway\\bin\\gateway.ps1",
+    "chat",
+    "${input:chatMessage:Enter your message to hj-gateway:}"
+  ],
+  "shellCommand": "e:\\HJ\\cursor\\subprojects\\hj-gateway\\bin\\gateway.ps1 chat"
+}

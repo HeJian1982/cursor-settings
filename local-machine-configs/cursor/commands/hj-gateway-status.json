@@ -1,0 +1,13 @@
+{
+  "name": "hj-gateway-status",
+  "description": "Show hj-gateway status in a side panel",
+  "command": "powershell",
+  "args": [
+    "-NoProfile",
+    "-ExecutionPolicy", "Bypass",
+    "-File", "e:\\HJ\\cursor\\subprojects\\hj-gateway\\bin\\gateway.ps1",
+    "status"
+  ],
+  "cwd": "e:\\HJ\\cursor\\subprojects\\hj-gateway",
+  "shellCommand": "e:\\HJ\\cursor\\subprojects\\hj-gateway\\bin\\gateway.ps1 status"
+}

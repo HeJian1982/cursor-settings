@@ -50,12 +50,24 @@ hj-gateway/
 ├── config/
 │   ├── gateway.json       # providers + system_prompt
 │   └── .env.example
-├── skills/                # 5 个示例 skill
+├── skills/                # 15 个 skill：time/weather/echo/git_*/sysinfo/disk/memory/network/hash/screenshot/hj_status/clipboard/ip + 用户自加
 │   ├── time.json
 │   ├── ip.json
 │   ├── weather.json
 │   ├── git_status.json
-│   └── echo.json
+│   ├── git_log.json
+│   ├── git_diff.json
+│   ├── echo.json
+│   ├── sysinfo.json
+│   ├── disk.json
+│   ├── memory.json
+│   ├── network.json
+│   ├── hash.json
+│   ├── screenshot.json
+│   ├── hj_status.json
+│   └── clipboard.json
+├── tests/
+│   └── test_basic.py      # 14 个单元测试 (render/skill/chat)
 ├── state/                 # 运行时 (PID file, SQLite conversations)
 ├── logs/                  # server.log + gateway.log
 └── README.md
@@ -67,6 +79,10 @@ hj-gateway/
 # 启动（后台，零依赖）
 cd E:\HJ\cursor\subprojects\hj-gateway\bin
 .\gateway.ps1 start
+
+# 启动 + 守护模式（进程死了自动重启）
+.\gateway.ps1 start watch
+# Ctrl+C 退出；适合用 Task Scheduler / 手动长期运行
 
 # 状态
 .\gateway.ps1 status
@@ -82,9 +98,19 @@ cd E:\HJ\cursor\subprojects\hj-gateway\bin
 .\gateway.ps1 chat "git 状态"
 # 预期: 调用 git_status skill，列出 e:\HJ\cursor 改动
 
+# 交互式 REPL（推荐 — 一次启动多次对话）
+.\gateway.ps1 repl
+#   /skills      列出所有 skill
+#   /memory      查看最近 10 条对话
+#   /providers   列出所有 provider
+#   /status      网关状态
+#   /help        命令帮助
+#   /q           退出
+
 # 显式 skill 调用
 .\gateway.ps1 skill list
 .\gateway.ps1 skill run time
+.\gateway.ps1 skill new myname          # 脚手架新建 skill JSON（热加载）
 
 # 停止
 .\gateway.ps1 stop
@@ -129,8 +155,40 @@ curl -X POST http://127.0.0.1:7799/v1/skills/run \
   -d '{"name":"time","args":[]}'
 
 # 看最近 20 条对话（sqlite）
-curl 'http://127.0.0.1:7799/v1/memory/recent?n=20'
+curl 'http://127.0.0.1:7799/v1/memory?limit=20'
+
+# 看所有 provider 配置
+curl http://127.0.0.1:7799/v1/providers
+
+# SSE 流式聊天
+curl -N -X POST http://127.0.0.1:7799/v1/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{"message":"你好"}'
+# 预期: event: start / event: token (N 个) / event: done
 ```
+
+## 集成到 Cursor IDE
+
+已添加 2 个命令到 `local-machine-configs/cursor/commands/`：
+- `hj-gateway-status` — 显示运行状态
+- `hj-gateway-chat` — 弹窗输入消息并发送
+
+详见 `local-machine-configs/cursor/commands/hj-gateway.md`。
+
+## 添加 skill
+
+两种方式：
+
+**A. 命令行脚手架**（推荐）
+```powershell
+.\gateway.ps1 skill new myname        # literal 模板
+.\gateway.ps1 skill new myname shell  # shell 命令模板
+.\gateway.ps1 skill new myname http   # HTTP URL 模板
+```
+然后编辑 `skills/myname.json` 加 `keywords` 等字段。**保存即生效**（hot reload）。
+
+**B. 手写**
+在 `skills/<name>.json` 写一个文件：
 
 ## 配置 provider
 
@@ -159,6 +217,20 @@ curl 'http://127.0.0.1:7799/v1/memory/recent?n=20'
 ```
 
 `gateway.ps1 restart` 即可热加载。
+
+模板变量（双花括号避开 PowerShell 单花括号语法）：
+- `{{args}}` — 整段 message
+- `{{args_csv}}` — 逗号分隔
+- `{{arg0}}` / `{{arg1}}` / ... — 第 N 个 token
+
+## 测试
+
+```powershell
+cd E:\HJ\cursor
+python -m unittest subprojects.hj-gateway.tests.test_basic -v
+```
+
+**14 个单元测试**覆盖：`_render` 模板引擎 / `run_skill` literal+shell / `SkillStore` 加载+匹配+热加载 / `Config` 加载 / `ProviderRouter` echo / `Gateway.chat` 端到端。
 
 ## 依赖
 

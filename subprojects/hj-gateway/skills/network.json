@@ -1,0 +1,7 @@
+{
+    "name": "network",
+    "description": "网络接口 + 公网 IP（本地接口表 + 一次性 ipify 探测）",
+    "keywords": ["网络", "网卡", "ip", "network", "interfaces", "公网ip"],
+    "kind": "shell",
+    "command": "powershell -NoProfile -Command \"Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -ne '127.0.0.1' -and $_.PrefixOrigin -ne 'WellKnown'} | Select-Object InterfaceAlias,IPAddress | Format-Table -AutoSize | Out-String\""
+}

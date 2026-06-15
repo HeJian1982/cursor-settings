@@ -1,0 +1,7 @@
+{
+    "name": "git_diff",
+    "description": "e:\\HJ\\cursor 工作区 diff stat（变更文件概览）",
+    "keywords": ["git diff", "diff stat", "改动列表", "staged changes"],
+    "kind": "shell",
+    "command": "powershell -NoProfile -Command \"git -C e:\\HJ\\cursor diff --stat HEAD; if ($LASTEXITCODE) {}; git -C e:\\HJ\\cursor diff --cached --stat\""
+}

@@ -1,0 +1,7 @@
+{
+    "name": "clipboard",
+    "description": "读/写剪贴板（chat 配 'set <text>' 写入；纯读显示当前内容）",
+    "keywords": ["剪贴板", "clipboard", "复制", "粘贴", "复制到"],
+    "kind": "shell",
+    "command": "powershell -NoProfile -Command \"Add-Type -AssemblyName System.Windows.Forms; $c=[System.Windows.Forms.Clipboard]::GetText(); if ($c) { $c } else { '(empty)' }\""
+}

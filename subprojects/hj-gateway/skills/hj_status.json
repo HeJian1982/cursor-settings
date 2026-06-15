@@ -1,0 +1,7 @@
+{
+    "name": "hj_status",
+    "description": "本仓 hj-gateway + 6 仓外部 clone 状态总览",
+    "keywords": ["hj 状态", "hj 概览", "网关状态", "hj status", "总览"],
+    "kind": "shell",
+    "command": "powershell -NoProfile -Command \"$lines=@(); $lines+='== hj-gateway =='; $lines+=(Get-ChildItem e:\\HJ\\cursor\\subprojects\\hj-gateway -Recurse -File -ErrorAction SilentlyContinue | Measure-Object).Count.ToString()+' files'; $lines+='== 6 外部仓 =='; Get-ChildItem e:\\HJ\\cursor\\subprojects\\repos-from-external -Recurse -Directory -ErrorAction SilentlyContinue | ForEach-Object { $d=$_.FullName; if (Test-Path (Join-Path $d '.git')) { $n=Split-Path $d -Leaf; $lines+=$n+' (git)'; } }; $lines -join [Environment]::NewLine\""
+}

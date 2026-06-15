@@ -31,3 +31,10 @@ subprojects/hj-gateway/logs/
 
 # External repos cloned for research — not tracked (see subprojects/repos-from-external/README.md)
 subprojects/repos-from-external/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Temporary text artifacts
+repl.txt

@@ -1,0 +1,7 @@
+{
+    "name": "screenshot",
+    "description": "截全屏并保存到 hj-gateway/screenshots/",
+    "keywords": ["截图", "screenshot", "截屏", "screen capture"],
+    "kind": "shell",
+    "command": "powershell -NoProfile -Command \"Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $dir=Join-Path (Split-Path (Split-Path $PSCommandPath -Parent) -Parent) 'screenshots'; if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }; $f=Join-Path $dir ('shot_'+(Get-Date -Format 'yyyyMMdd_HHmmss')+'.png'); $b=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp=New-Object System.Drawing.Bitmap $b.Width,$b.Height; $g=[System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Location,[System.Drawing.Point]::Empty,$b.Size); $bmp.Save($f,[System.Drawing.Imaging.ImageFormat]::Png); 'saved: '+$f\""
+}

@@ -14,14 +14,14 @@ hj-gateway · 个人 AI 助手本地网关 (PowerShell 入口)
   .\bin\gateway.ps1 status   # 查状态
   .\bin\gateway.ps1 chat "你好"  # 一次性对话
   .\bin\gateway.ps1 skill list # 列 skill
-  .\bin\gateway.ps1 skill run <name> [args...]
+  .\bin\gateway.ps1 skill run NAME [args...]
   .\bin\gateway.ps1 install-autostart   # 写开机自启
   .\bin\gateway.ps1 uninstall-autostart # 撤开机自启
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true, Position=0)]
-    [ValidateSet('start','stop','status','restart','chat','skill','install-autostart','uninstall-autostart','help')]
+    [ValidateSet('start','stop','status','restart','chat','skill','repl','install-autostart','uninstall-autostart','help')]
     [string]$Command,
 
     [Parameter(Mandatory=$false, Position=1, ValueFromRemainingArguments=$true)]
@@ -83,6 +83,10 @@ function Is-Running {
 
 # ---- start ----
 function Start-Gateway {
+    [CmdletBinding()]
+    param(
+        [switch]$Watch
+    )
     if (Is-Running) {
         Write-Log 'WARN' "already running (pid=$(Get-Content $PidFile -Raw))"
         return
@@ -101,7 +105,7 @@ function Start-Gateway {
     }
     $cfg = Read-Config
     $logFile = Join-Path $LogDir 'server.log'
-    Write-Log 'INFO' "starting gateway on port $Port"
+    Write-Log 'INFO' "starting gateway on port $Port (watch=$Watch)"
     $proc = Start-Process -FilePath $pythonCmd.Source -ArgumentList @($pyServer, '--port', $Port, '--root', $RootDir) `
         -RedirectStandardOutput $logFile -RedirectStandardError (Join-Path $LogDir 'server.err') `
         -NoNewWindow -PassThru
@@ -113,6 +117,27 @@ function Start-Gateway {
         Write-Log 'INFO' "gateway ready: $($status.banner)"
     } else {
         Write-Log 'ERROR' "gateway failed to start: $($status.error)"
+    }
+
+    if ($Watch) {
+        # 守护模式：进程死了自动重启
+        Write-Host "[watch] entering daemon mode; Ctrl+C to stop" -ForegroundColor Cyan
+        while ($true) {
+            $alive = $true
+            try {
+                Get-Process -Id $proc.Id -ErrorAction Stop | Out-Null
+            } catch { $alive = $false }
+            if (-not $alive) {
+                Write-Host "[watch] gateway pid=$($proc.Id) died, restarting..." -ForegroundColor Yellow
+                $proc = Start-Process -FilePath $pythonCmd.Source -ArgumentList @($pyServer, '--port', $Port, '--root', $RootDir) `
+                    -RedirectStandardOutput $logFile -RedirectStandardError (Join-Path $LogDir 'server.err') `
+                    -NoNewWindow -PassThru
+                Set-Content -Path $PidFile -Value $proc.Id -Encoding UTF8
+                Write-Host "[watch] restarted pid=$($proc.Id)" -ForegroundColor Green
+                Start-Sleep -Seconds 1
+            }
+            Start-Sleep -Seconds 5
+        }
     }
 }
 
@@ -181,15 +206,35 @@ function Invoke-Skill {
             $resp.skills | ForEach-Object { Write-Host "  $($_.name) - $($_.description)" }
         }
         'run' {
-            if ($rest.Count -lt 1) { Write-Host 'usage: skill run <name> [args...]' -ForegroundColor Yellow; exit 1 }
+            if ($rest.Count -lt 1) { Write-Host 'usage: skill run NAME [args...]' -ForegroundColor Yellow; exit 1 }
             $name = $rest[0]
             $skillArgs = @($rest | Select-Object -Skip 1)
             $body = @{ name = $name; args = $skillArgs } | ConvertTo-Json -Compress
             $resp = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/v1/skills/run" -Method Post -Body $body -ContentType 'application/json' -TimeoutSec 30
             Write-Host $resp.output
         }
+        'new' {
+            if ($rest.Count -lt 1) { Write-Host 'usage: skill new NAME [kind=literal|shell|http]' -ForegroundColor Yellow; exit 1 }
+            $name = $rest[0].ToLower()
+            $kind = if ($rest.Count -gt 1) { $rest[1].ToLower() } else { 'literal' }
+            if ($kind -notin @('literal','shell','http')) {
+                Write-Host 'kind must be: literal, shell, or http' -ForegroundColor Yellow; exit 1
+            }
+            $skillsDir = Join-Path $RootDir 'skills'
+            if (-not (Test-Path $skillsDir)) { New-Item -ItemType Directory -Path $skillsDir -Force | Out-Null }
+            $path = Join-Path $skillsDir "$name.json"
+            if (Test-Path $path) { Write-Host "exists: $path" -ForegroundColor Yellow; exit 1 }
+            $template = switch ($kind) {
+                'literal' { @{ name=$name; description='[说明]'; keywords=@($name); kind='literal'; response="[回显文本 $args]" } }
+                'shell'   { @{ name=$name; description='[说明]'; keywords=@($name); kind='shell'; command='powershell -NoProfile -Command "echo hello $args"' } }
+                'http'    { @{ name=$name; description='[说明]'; keywords=@($name); kind='http'; url='https://api.example.com/$arg0' } }
+            }
+            $template | ConvertTo-Json -Depth 5 | Out-File -FilePath $path -Encoding UTF8
+            Write-Host "✅ 已创建: $path" -ForegroundColor Green
+            Write-Host "   下一步: 编辑这个 JSON，加 keywords, 编辑完成后 gateway 会热加载"
+        }
         default {
-            Write-Host "unknown subcommand: $sub" -ForegroundColor Yellow
+            Write-Host "unknown subcommand: $sub  (可用: list|run|new)" -ForegroundColor Yellow
             exit 1
         }
     }
@@ -241,24 +286,125 @@ function Uninstall-AutoStart {
     $lnk = Join-Path ([Environment]::GetFolderPath('Startup')) 'HJ-Personal-AI-Gateway.lnk'
     if (Test-Path $lnk) { Remove-Item $lnk -Force }
     Write-Log 'INFO' "autostart uninstalled"
-    Write-Host "✅ 开机自启已卸载" -ForegroundColor Green
+    Write-Host '[ok] 开机自启已卸载' -ForegroundColor Green
 }
+
+# ---- REPL 模式: 持续连接，一次启动多次对话 ----
+function Start-Repl {
+    $st = Get-StatusInternal
+    if (-not $st.ok) {
+        Write-Host '[repl] starting gateway first...' -ForegroundColor Yellow
+        Start-Gateway
+        Start-Sleep -Seconds 1
+    }
+    Write-Host ''
+    Write-Host 'hj-gateway REPL - Ctrl+C to quit, /q to exit' -ForegroundColor Cyan
+    Write-Host 'commands: /skills /memory /providers /status /help' -ForegroundColor Cyan
+    Write-Host ''
+    $running = $true
+    while ($running) {
+        try {
+            Write-Host 'you> ' -NoNewline -ForegroundColor Green
+            $line = [Console]::ReadLine()
+        } catch {
+            break
+        }
+        if ($null -eq $line) { break }
+        $line = $line.Trim()
+        if (-not $line) { continue }
+        switch ($line) {
+            '/q' { Write-Host 'bye.' -ForegroundColor Cyan; $running = $false; continue }
+            '/quit' { Write-Host 'bye.' -ForegroundColor Cyan; $running = $false; continue }
+            '/exit' { Write-Host 'bye.' -ForegroundColor Cyan; $running = $false; continue }
+            '/help' {
+                Write-Host '  /skills       list skills' -ForegroundColor Yellow
+                Write-Host '  /memory       recent memory' -ForegroundColor Yellow
+                Write-Host '  /providers    list providers' -ForegroundColor Yellow
+                Write-Host '  /status       gateway status' -ForegroundColor Yellow
+                Write-Host '  /q            quit' -ForegroundColor Yellow
+                Write-Host '  <text>        send to gateway' -ForegroundColor Yellow
+                continue
+            }
+            '/skills' {
+                $uri = 'http://127.0.0.1:' + $Port + '/v1/skills'
+                $resp = Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 5
+                foreach ($sk in $resp.skills) {
+                    $entry = '  {0,-15}  {1}' -f $sk.name, $sk.description
+                    Write-Host $entry
+                }
+                continue
+            }
+            '/memory' {
+                $uri = 'http://127.0.0.1:' + $Port + '/v1/memory?limit=10'
+                $resp = Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 5
+                foreach ($item in $resp.items) {
+                    $role = $item.role
+                    $len = [Math]::Min(120, $item.content.Length)
+                    $preview = $item.content.Substring(0, $len)
+                    $line2 = '[' + $role + '] ' + $preview
+                    $color = 'Cyan'
+                    if ($role -eq 'user') { $color = 'Green' }
+                    Write-Host $line2 -ForegroundColor $color
+                }
+                continue
+            }
+            '/providers' {
+                $uri = 'http://127.0.0.1:' + $Port + '/v1/providers'
+                $resp = Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec 5
+                foreach ($p in $resp.providers.PSObject.Properties) {
+                    $entry = '  {0,-22}  {1}' -f $p.Name, $p.Value.description
+                    Write-Host $entry -ForegroundColor Yellow
+                }
+                continue
+            }
+            '/status' {
+                Show-Status
+                continue
+            }
+            default {
+                Send-Chat -Message $line
+                Write-Host ''
+            }
+        }
+    }
+}
+
 
 # ---- main dispatch ----
 switch ($Command) {
-    'start'           { Start-Gateway }
+    'start'           {
+        $watch = ($RestArgs -contains '--watch')
+        if ($watch) { Start-Gateway -Watch } else { Start-Gateway }
+    }
     'stop'            { Stop-Gateway }
     'restart'         { Stop-Gateway; Start-Sleep -Seconds 1; Start-Gateway }
     'status'          { Show-Status }
     'chat'            {
         $msg = ($RestArgs -join ' ').Trim()
-        if (-not $msg) { Write-Host 'usage: chat "your message"' -ForegroundColor Yellow; exit 1 }
+        if (-not $msg) {
+            Write-Host 'usage: chat MESSAGE' -ForegroundColor Yellow
+            exit 1
+        }
         Send-Chat -Message $msg
     }
+    'repl'            { Start-Repl }
     'skill'           { Invoke-Skill -Args2 $RestArgs }
     'install-autostart'   { Install-AutoStart }
     'uninstall-autostart' { Uninstall-AutoStart }
     'help' {
-        Get-Content $MyInvocation.MyCommand.Path -TotalCount 25 | Out-String
+        Write-Host 'hj-gateway commands:' -ForegroundColor Cyan
+        Write-Host '  start                start the gateway'
+        Write-Host '  start watch          start with auto-restart on crash'
+        Write-Host '  stop                 stop'
+        Write-Host '  restart              restart'
+        Write-Host '  status               show status'
+        Write-Host '  chat MESSAGE         one-shot chat'
+        Write-Host '  repl                 interactive REPL'
+        Write-Host '  skill list           list skills'
+        Write-Host '  skill run NAME       run a skill'
+        Write-Host '  skill new NAME       scaffold a new skill JSON'
+        Write-Host '  install-autostart    install autostart'
+        Write-Host '  uninstall-autostart  remove autostart'
+        Write-Host '  help                 show this help'
     }
 }
