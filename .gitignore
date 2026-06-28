@@ -32,6 +32,11 @@ subprojects/hj-gateway/logs/
 # External repos cloned for research — not tracked (see subprojects/repos-from-external/README.md)
 subprojects/repos-from-external/
 
+# Intake repos cloned for skill/MCP curation — only references/ and scripts are tracked
+# (see intake/README.md for which repos are inside intake/)
+intake/[^r]*/
+intake/*/.git/
+
 # Python bytecode
 __pycache__/
 *.pyc
