@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "skills": {
+      "command": "npx",
+      "args": ["-y", "@gengirish/skills-mcp"],
+      "description": "Search, discover, and install 7000+ agent skills from across GitHub ecosystem"
+    }
+  }
+}
